@@ -154,6 +154,7 @@ module "envfile" {
   AWS_ACCOUNT_ID             = var.AWS_ACCOUNT_ID
   nats_seed_key              = module.lambda.nats_seed_key
   crypto_private_key         = module.root.crypto_private_key
+  platform_seed              =module.root.platform_seed
   depends_on                 = [module.efs,module.s3,module.lambda]
 }
 

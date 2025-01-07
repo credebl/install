@@ -37,8 +37,7 @@ resource "aws_s3_object" "api_gateway_env" {
     AGENT_HOST=ec2-user@3.110.168.41
     AWS_ACCOUNT_ID=${var.AWS_ACCOUNT_ID}
     PLATFORM_WALLET_NAME=platform-admin
-    PLATFORM_WALLET_PASSWORD=U2FsdGVkX18Y7bdtrjA444InlqFbMTownPCloGszjy0=
-    PLATFORM_SEED=000000000000000000000000Steward1
+    PLATFORM_SEED=${var.platform_seed}
     S3_BUCKET_ARN=${var.env_file_bucket_arn}
     
     CRYPTO_PRIVATE_KEY=${var.crypto_private_key}
@@ -66,8 +65,8 @@ resource "aws_s3_object" "api_gateway_env" {
     KEYCLOAK_DOMAIN=http://${var.alb_details["KEYCLOAK"].dns} 
     KEYCLOAK_ADMIN_URL=http://${var.alb_details["KEYCLOAK"].dns} 
     KEYCLOAK_MASTER_REALM=master
-    KEYCLOAK_MANAGEMENT_CLIENT_ID=adminClient
-    KEYCLOAK_MANAGEMENT_CLIENT_SECRET=RoXhHyUHumIDZf9b7pvexNHoqRAfC3ur
+    KEYCLOAK_MANAGEMENT_CLIENT_ID=xxxxxxxxxx
+    KEYCLOAK_MANAGEMENT_CLIENT_SECRET=xxxxxxxxx
     KEYCLOAK_REALM=credebl_platform
     AWS_S3_STOREOBJECT_REGION=${var.region}
     AWS_S3_STOREOBJECT_BUCKET=${var.link_bucket_id}
@@ -83,7 +82,7 @@ resource "aws_s3_object" "api_gateway_env" {
     MOBILE_APP_DOWNLOAD_URL=https://blockster.global/products/adeya
     SCHEMA_FILE_SERVER_URL=${local.schema_file_service_connect}
     MAX_ORG_LIMIT=10
-    SCHEMA_FILE_SERVER_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJBeWFuV29ya3MiLCJpZCI6ImNhZDI3ZjhjLTMyNWYtNDRmZC04ZmZkLWExNGNhZTY3NTMyMSJ9.I3IR7abjWbfStnxzn1BhxhV0OEzt1x3mULjDdUcgWHk
+    SCHEMA_FILE_SERVER_TOKEN=xxxxxxxx
     GEO_LOCATION_MASTER_DATA_IMPORT_SCRIPT=/prisma/scripts/geo_location_data_import.sh
     UPDATE_CLIENT_CREDENTIAL_SCRIPT=/prisma/scripts/update_client_credential_data.sh
     ENABLE_CORS_IP_LIST=http://localhost:3000,http://localhost:5000,http://${var.alb_details["KEYCLOAK"].dns},http://${var.alb_details["UI"].dns} 

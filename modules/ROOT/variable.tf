@@ -207,3 +207,5 @@ variable "platform_db" {
   type    = string
   default = "db.t3.medium"
 }
+
+variable "platform_seed" {}

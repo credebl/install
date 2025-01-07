@@ -75,3 +75,7 @@ output "aries_db" {
 output "crypto_private_key" {
   value = var.crypto_private_key
 }
+
+output "platform_seed" {
+  value = var.platform_seed
+}

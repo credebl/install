@@ -10,6 +10,7 @@ variable "link_bucket_id" {}
 variable "org_logo_bucket_id" {}
 variable "org_logo_bucket_dns" {}
 variable "crypto_private_key" {}
+variable "platform_seed" {}
 
 
 variable "database_info_by_service" {}

@@ -4,7 +4,7 @@ resource "aws_s3_object" "ui_env" {
   content = <<-EOT
     PUBLIC_BASE_URL=http://${local.api_gateway_service_connect}  # api-gateway url
 
-PUBLIC_CRYPTO_PRIVATE_KEY=cb97d73ca63ab8887fa1d830d9fc  # cpoy crypto key from banckend
+PUBLIC_CRYPTO_PRIVATE_KEY=${var.crypto_private_key}  # cpoy crypto key from banckend
 PUBLIC_PLATFORM_NAME=upper(var.project_name)
 PUBLIC_PLATFORM_LOGO="https://${var.org_logo_bucket_dns}/assets/logo.png"
 PUBLIC_POWERED_BY= upper(var.project_name)
@@ -19,8 +19,8 @@ PUBLIC_PLATFROM_DISCORD_SUPPORT=""
 PUBLIC_SHOW_NAME_AS_LOGO=true
 
 #keyclaok details
-PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_ID=adminClient
-PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=SvJCQxWBonQzUlgYjtOuPZteUwhalVYs 
+PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_ID=xxxxxxxxxx
+PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=xxxxxxxxx 
 
 #whitelist URl to access frontend
 
