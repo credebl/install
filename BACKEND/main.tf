@@ -12,6 +12,8 @@ module "root" {
   platform_db             = var.platform_db
   aries_db                = var.aries_db
   region                  = var.region
+  platform_seed = var.platform_seed
+  crypto_private_key = var.crypto_private_key
 }
 
 module "vpc" {

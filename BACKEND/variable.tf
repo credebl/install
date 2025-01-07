@@ -25,3 +25,4 @@ variable "AWS_ACCOUNT_ID" {}
 variable "aries_db" {}
 variable "platform_db" {}
 variable "crypto_private_key" {}
+variable "platform_seed" {}
