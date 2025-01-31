@@ -1,4 +1,4 @@
-# allocate elastic ip. this eip will be used for the nat-gateway in the public subnet az1 
+# Allocate elastic IP for the NAT gateway in AZ1
 resource "aws_eip" "eip_for_nat_gateway_az1" {
   domain = "vpc"
 
@@ -7,7 +7,7 @@ resource "aws_eip" "eip_for_nat_gateway_az1" {
   }
 }
 
-# allocate elastic ip. this eip will be used for the nat-gateway in the public subnet az2
+# Allocate elastic IP for the NAT gateway in AZ2
 resource "aws_eip" "eip_for_nat_gateway_az2" {
   domain = "vpc"
 
@@ -16,7 +16,7 @@ resource "aws_eip" "eip_for_nat_gateway_az2" {
   }
 }
 
-# create nat gateway in public subnet az1
+# Create NAT gateways in the public subnets (AZ1 and AZ2)
 resource "aws_nat_gateway" "nat_gateway" {
   count = var.nat_gateway_count
 
@@ -28,38 +28,16 @@ resource "aws_nat_gateway" "nat_gateway" {
     Name = "${var.project_name}-${var.environment}-nat-gateway-${count.index + 1}"
   }
 
-
-  # to ensure proper ordering, it is recommended to add an explicit dependency
-  # on the internet gateway for the vpc.
-  depends_on = [var.internet_gateway_id]
+  # Ensure proper ordering on internet gateway for the VPC
+  depends_on = [aws_eip.eip_for_nat_gateway_az1, aws_eip.eip_for_nat_gateway_az2] # Assuming you have an IGW resource
 }
 
-# create private route 
-resource "aws_route_table" "private_route_table" {
-  count = length(var.private_route_table_names)
+# Update private route tables to use NAT gateways for app subnet
+resource "aws_route" "private_nat" {
+  count                  = length(local.private_route_table_ids)
+  route_table_id         = local.private_route_table_ids[count.index]
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.nat_gateway[count.index].id
 
-  vpc_id = var.vpc_id
-
-  route {
-    cidr_block     = "0.0.0.0/0"
-    nat_gateway_id = element(aws_nat_gateway.nat_gateway[*].id, count.index)
-  }
-
-  tags = {
-    Name = "${var.project_name}-${var.environment}-${element(var.private_route_table_names, count.index + 1)}"
-  }
-}
-
-# associate private app subnet az1 with private route table az1
-resource "aws_route_table_association" "private_app_route_table_association" {
-  count          = length(var.private_app_subnet_ids)
-  subnet_id      = element(var.private_app_subnet_ids, count.index)
-  route_table_id = aws_route_table.private_route_table[0].id
-}
-
-# associate private app subnet az1 with private route table az1
-resource "aws_route_table_association" "private_db_route_table_association" {
-  count          = length(var.private_db_subnet_ids)
-  subnet_id      = element(var.private_db_subnet_ids, count.index)
-  route_table_id = aws_route_table.private_route_table[1].id
+  depends_on = [aws_nat_gateway.nat_gateway]
 }
