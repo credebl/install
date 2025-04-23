@@ -3,15 +3,15 @@
 set -e
 set -o pipefail
 
-REPO_URL="https://github.com/credebl/terraform-scripts.git"
+# REPO_URL="https://github.com/credebl/terraform-scripts.git"
 REPO_DIR="terraform-scripts/local-deployment"
 
 echo "Starting CREDEBL Platform Setup..."
 
-if [ ! -d "$REPO_DIR" ]; then
-    echo "cloning REPO"
-    git clone "$REPO_URL"
-fi
+# if [ ! -d "$REPO_DIR" ]; then
+#     echo "cloning REPO"
+#     git clone "$REPO_URL"
+# fi
 
 cd "$REPO_DIR"
 git checkout refactor
