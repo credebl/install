@@ -328,11 +328,6 @@ setup_keycloak_terraform() {
         exit 1
     }
     
-    cd - || {
-        print_message "red" "Failed to return to previous directory"
-        exit 1
-    }
-    
     print_message "green" "Keycloak setup completed via Terraform."
 }
 
@@ -351,13 +346,15 @@ update_keycloak_secret() {
         return 1
     fi
     
-    if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
+    ENV_FILE="../../local-deployment/.env"
+
+    if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" "$ENV_FILE"; then
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" "$ENV_FILE" || {
             print_message "red" "Failed to update existing KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> "$ENV_FILE" || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
