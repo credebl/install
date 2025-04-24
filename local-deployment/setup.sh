@@ -6,6 +6,7 @@ set -euo pipefail
 LOG_FILE="deployment.log"
 KEYCLOAK_VERSION="25.0.6"
 TERRAFORM_DIR="../terraform-script/keycloak/"
+ROOT_DIR="../../local-deployment/"
 DOCKER_COMPOSE_FILE="docker-compose.yaml"
 
 # Initialize logging
@@ -346,15 +347,18 @@ update_keycloak_secret() {
         return 1
     fi
     
-    ENV_FILE="../../local-deployment/.env"
+    cd "${ROOT_DIR}" || {
+        print_message "red" "Failed to change directory to ${ROOT_DIR}"
+        exit 1
+    }
 
-    if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" "$ENV_FILE"; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" "$ENV_FILE" || {
+    if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
             print_message "red" "Failed to update existing KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> "$ENV_FILE" || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
