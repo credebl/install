@@ -1,196 +1,455 @@
 #!/bin/bash
 
-set -e
-set -o pipefail
+set -euo pipefail
 
-# REPO_URL="https://github.com/credebl/terraform-scripts.git"
-# REPO_DIR="terraform-scripts/local-deployment"
+# Constants
+LOG_FILE="deployment.log"
+KEYCLOAK_VERSION="25.0.6"
+TERRAFORM_DIR="../terraform-script/keycloak/"
+DOCKER_COMPOSE_FILE="docker-compose.yaml"
 
-# echo "Starting CREDEBL Platform Setup..."
+# Initialize logging
+exec > >(tee -a "${LOG_FILE}") 2>&1
+echo -e "\n\n=== Deployment started at $(date) ==="
 
-# if [ ! -d "$REPO_DIR" ]; then
-#     echo "cloning REPO"
-#     git clone "$REPO_URL"
-# fi
-
-# cd "$REPO_DIR"
-# git checkout refactor
-
-# Step 1: Prepare environment files
-if [ ! -f .env ]; then
-    echo "📁 Copying .env.demo to .env..."
-    cp .env.demo .env
-else
-    echo "✅ .env already exists. Skipping copy."
-fi
-
-read -p "Enter your machine IP address: " MACHINE_IP
-sed -i "s|your-ip|$MACHINE_IP|g" .env
-
-# Step 2: Check OS and install docker
-OS_ID=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
-OS_TYPE="$(uname -s)"
-command_exists() {
-  command -v "$1" &> /dev/null
+# Cross-platform sed in-place function
+sed_inplace() {
+    if [ "$(uname)" == "Darwin" ]; then
+        sed -i '' "$@"
+    else
+        sed -i "$@"
+    fi
 }
 
-if [ "$OS_ID" == "ubuntu" ]; then
-    echo "Detected Ubuntu. Proceeding with Ubuntu-specific Docker installation."
-    echo "🔍 Checking for Docker..."
-    if ! command_exists docker; then
-        echo "📦 Docker is not installed. Installing Docker..."
-        sudo apt-get update
-        sudo apt-get install ca-certificates curl
-        sudo install -m 0755 -d /etc/apt/keyrings
-        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-        sudo chmod a+r /etc/apt/keyrings/docker.asc
+# Function to print colored messages
+print_message() {
+    local color=$1
+    local message=$2
+    local symbol=""
+    
+    case "$color" in
+        "green") symbol="✅" ;;
+        "yellow") symbol="📁" ;;
+        "red") symbol="❌" ;;
+        "blue") symbol="🔍" ;;
+        "purple") symbol="🛡️" ;;
+        *) symbol="📌" ;;
+    esac
+    
+    echo -e "${symbol} ${message}"
+}
 
-        echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt-get update
+# Function to check command existence
+command_exists() {
+    command -v "$1" >/dev/null 2>&1
+}
 
-        sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-        echo "✅ Docker installed."
-        sudo systemctl start docker
-        sudo systemctl enable docker
-        fi
+# Step 1: Prepare environment files
+prepare_environment() {
+    print_message "yellow" "Preparing environment files..."
+    
+    if [ ! -f .env ]; then
+        print_message "yellow" "Copying .env.demo to .env..."
+        cp .env.demo .env || {
+            print_message "red" "Failed to copy .env.demo to .env"
+            exit 1
+        }
     else
-    echo "✅ Docker is already installed."
+        print_message "green" ".env already exists. Skipping copy."
     fi
 
-    echo "🔍 Checking for Docker Compose..."
-    if ! docker compose version &> /dev/null; then
-        sudo apt-get install ca-certificates curl
-        sudo install -m 0755 -d /etc/apt/keyrings
-        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-        sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-        echo \
-            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
-            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
-            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-        sudo apt-get update
-
-        sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-    else
-        echo "✅ Docker Compose is available."
+    read -p "Enter your machine IP address: " MACHINE_IP
+    if [[ -z "$MACHINE_IP" ]]; then
+        print_message "red" "Machine IP cannot be empty"
+        exit 1
     fi
 
-    echo "🛠️ Checking for Terraform..."
-    if ! command -v terraform &> /dev/null; then
-        echo "❌ Terraform is not installed. Installing Terraform..."
+    sed_inplace "s|your-ip|$MACHINE_IP|g" .env || {
+        print_message "red" "Failed to update IP in .env file"
+        exit 1
+    }
+}
+
+# Step 2: Install Docker based on OS
+install_docker() {
+    local OS_ID
+    if [ -f /etc/os-release ]; then
+        OS_ID=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
+    else
+        OS_ID=$(uname -s)
+    fi
+
+    case "$OS_ID" in
+        "ubuntu")
+            install_docker_ubuntu
+            ;;
+        "debian")
+            install_docker_debian
+            ;;
+        "Darwin")
+            install_docker_macos
+            ;;
+        *)
+            print_message "red" "Unsupported OS: $OS_ID"
+            exit 1
+            ;;
+    esac
+}
+
+install_docker_ubuntu() {
+    print_message "blue" "Detected Ubuntu. Checking Docker installation..."
+    
+    if ! command_exists docker || ! docker compose version &> /dev/null; then
+        print_message "yellow" "Installing Docker on Ubuntu..."
         
-        # Install Terraform (Linux x86_64)
-        sudo apt-get update
-        sudo apt-get update && sudo apt-get install -y gnupg software-properties-common
-        wget -O- https://apt.releases.hashicorp.com/gpg | \
-        gpg --dearmor | \
-        sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null
-        echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
-        https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
-        sudo tee /etc/apt/sources.list.d/hashicorp.list
-        sudo apt update
-        sudo apt-get install terraform
-        echo "✅ Terraform installed."
+        sudo apt-get update || {
+            print_message "red" "Failed to update apt packages"
+            exit 1
+        }
+        
+        sudo apt-get install -y ca-certificates curl gnupg || {
+            print_message "red" "Failed to install prerequisites"
+            exit 1
+        }
+        
+        sudo install -m 0755 -d /etc/apt/keyrings || {
+            print_message "red" "Failed to create keyrings directory"
+            exit 1
+        }
+        
+        sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || {
+            print_message "red" "Failed to download Docker GPG key"
+            exit 1
+        }
+        
+        sudo chmod a+r /etc/apt/keyrings/docker.asc || {
+            print_message "red" "Failed to set keyring permissions"
+            exit 1
+        }
+        
+        echo \
+            "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+            $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+            sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || {
+                print_message "red" "Failed to add Docker repository"
+                exit 1
+            }
+        
+        sudo apt-get update || {
+            print_message "red" "Failed to update apt after adding Docker repo"
+            exit 1
+        }
+        
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || {
+            print_message "red" "Failed to install Docker packages"
+            exit 1
+        }
+        
+        print_message "green" "Docker installed successfully."
+        sudo systemctl start docker || {
+            print_message "red" "Failed to start Docker service"
+            exit 1
+        }
+        sudo systemctl enable docker || {
+            print_message "red" "Failed to enable Docker service"
+            exit 1
+        }
     else
-        echo "✅ Terraform is already installed."
+        print_message "green" "Docker and Docker Compose are already installed."
     fi
+}
 
-elif [ "$OS_ID" == "debian" ]; then
-    echo "Detected Debian."
+install_docker_debian() {
+    print_message "blue" "Detected Debian. Checking Docker installation..."
+    
     if ! command_exists docker; then
-        echo "📦 Docker is not installed. Install Docker"
+        print_message "red" "Docker is not installed. Please install Docker manually on Debian."
         exit 1
     else
-    echo "✅ Docker is already installed."
+        print_message "green" "Docker is already installed."
     fi
-    echo "🔍 Checking for Docker Compose..."
+    
     if ! docker compose version &> /dev/null; then
-        echo "📦 Docker compose is not installed. Install Docker compose..."
-    else
-        echo "✅ Docker Compose is available."
-    fi
-elif [ "$OS_TYPE" == "Darwin" ]; then
-    echo "Detected Darwin. Install Docker and Docker Compose."
-    if ! command_exists docker; then
-        echo "📦 Docker is not installed. Install Docker and Docker compose..."
+        print_message "red" "Docker Compose is not installed. Please install Docker Compose."
         exit 1
     else
-    echo "✅ Docker is already installed."
+        print_message "green" "Docker Compose is available."
     fi
+}
 
+install_docker_macos() {
+    print_message "blue" "Detected macOS. Checking Docker installation..."
+    
+    if ! command_exists docker; then
+        print_message "red" "Docker is not installed. Please install Docker Desktop for macOS."
+        exit 1
+    else
+        print_message "green" "Docker is already installed."
+    fi
+    
     if ! docker compose version &> /dev/null; then
-        echo "📦 Docker compose is not installed. Install Docker compose..."
+        print_message "red" "Docker Compose is not installed. Please install Docker Compose."
+        exit 1
     else
-        echo "✅ Docker Compose is available."
+        print_message "green" "Docker Compose is available."
+    fi
+}
+
+# Step 3: Install Terraform
+install_terraform() {
+    print_message "blue" "Checking Terraform installation..."
+    
+    if command_exists terraform; then
+        print_message "green" "Terraform is already installed."
+        return 0
+    fi
+    
+    local OS_ID
+    if [ -f /etc/os-release ]; then
+        OS_ID=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
+    else
+        OS_ID=$(uname -s)
     fi
 
-    if ! command -v terraform &> /dev/null; then
-        echo "❌ Terraform is not installed. Installing Terraform..."
-        brew tap hashicorp/tap
-        brew install hashicorp/tap/terraform
-        brew update
-        brew upgrade hashicorp/tap/terraform
-    else
-        echo "✅ Terraform is already installed."
-    fi
-else
-  echo "❌ Unsupported OS: $OS_ID"
-  exit 1
-fi
+    case "$OS_ID" in
+        "ubuntu"|"debian")
+            install_terraform_linux
+            ;;
+        "Darwin")
+            install_terraform_macos
+            ;;
+        *)
+            print_message "red" "Unsupported OS for Terraform installation: $OS_ID"
+            exit 1
+            ;;
+    esac
+}
 
-# Step 3: Deploy Keycloak
-echo "🛡️ Setting up Keycloak..."
-if ! docker ps | grep -q "keycloak"; then
-    echo "🛡️ Starting Keycloak..."
-    docker run -d -p 8080:8080 --name keycloak \
-        -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
-        quay.io/keycloak/keycloak:25.0.6 start-dev
-else
-    echo "✅ Keycloak is already running."
-fi
+install_terraform_linux() {
+    print_message "yellow" "Installing Terraform on Linux..."
+    
+    sudo apt-get update && sudo apt-get install -y gnupg software-properties-common || {
+        print_message "red" "Failed to install prerequisites for Terraform"
+        exit 1
+    }
+    
+    wget -O- https://apt.releases.hashicorp.com/gpg | \
+    gpg --dearmor | \
+    sudo tee /usr/share/keyrings/hashicorp-archive-keyring.gpg > /dev/null || {
+        print_message "red" "Failed to add HashiCorp GPG key"
+        exit 1
+    }
+    
+    echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+    https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+    sudo tee /etc/apt/sources.list.d/hashicorp.list || {
+        print_message "red" "Failed to add HashiCorp repository"
+        exit 1
+    }
+    
+    sudo apt update || {
+        print_message "red" "Failed to update apt after adding HashiCorp repo"
+        exit 1
+    }
+    
+    sudo apt-get install terraform || {
+        print_message "red" "Failed to install Terraform"
+        exit 1
+    }
+    
+    print_message "green" "Terraform installed successfully."
+}
+
+install_terraform_macos() {
+    print_message "yellow" "Installing Terraform on macOS..."
+    
+    if ! command_exists brew; then
+        print_message "red" "Homebrew is not installed. Please install Homebrew first."
+        exit 1
+    fi
+    
+    brew tap hashicorp/tap || {
+        print_message "red" "Failed to tap hashicorp/tap"
+        exit 1
+    }
+    
+    brew install hashicorp/tap/terraform || {
+        print_message "red" "Failed to install Terraform"
+        exit 1
+    }
+    
+    print_message "green" "Terraform installed successfully."
+}
+
+# Step 4: Deploy Keycloak
+deploy_keycloak() {
+    print_message "purple" "Setting up Keycloak..."
+    
+    if ! docker ps | grep -q "keycloak"; then
+        print_message "purple" "Starting Keycloak container..."
+        
+        docker run -d -p 8080:8080 --name keycloak \
+            -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
+            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev || {
+                print_message "red" "Failed to start Keycloak container"
+                exit 1
+            }
+            
+        print_message "green" "Keycloak started successfully."
+    else
+        print_message "green" "Keycloak is already running."
+    fi
+}
 
 # Step 5: Setup Keycloak using Terraform
-echo "🔐 Setting up Keycloak via Terraform..."
-cd ../terraform-script/keycloak/
-terraform init
-sleep 30
-terraform apply -auto-approve
-
-# Step 6: Insert ADMIN_CLIENT_SECRET into .env
-if [ -f secret.env ]; then
-    echo "🔑 Extracting ADMIN_CLIENT_SECRET and adding to .env..."
-    SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-
-    # If it already exists, replace it. Else, append.
-    if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" ../.env; then
-        sed -i "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" ../.env
-    else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> ../.env
+setup_keycloak_terraform() {
+    print_message "blue" "Setting up Keycloak via Terraform..."
+    
+    if [ ! -d "${TERRAFORM_DIR}" ]; then
+        print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
+        exit 1
     fi
+    
+    cd "${TERRAFORM_DIR}" || {
+        print_message "red" "Failed to change directory to ${TERRAFORM_DIR}"
+        exit 1
+    }
+    
+    terraform init || {
+        print_message "red" "Terraform init failed"
+        exit 1
+    }
+    
+    print_message "yellow" "Waiting 30 seconds for Keycloak to be fully ready..."
+    sleep 30
+    
+    terraform apply -auto-approve || {
+        print_message "red" "Terraform apply failed"
+        exit 1
+    }
+    
+    cd - || {
+        print_message "red" "Failed to return to previous directory"
+        exit 1
+    }
+    
+    print_message "green" "Keycloak setup completed via Terraform."
+}
 
-    echo "✅ Secret inserted in .env"
-else
-    echo "secret.env not found! Could not insert KEYCLOAK_MANAGEMENT_CLIENT_SECRET."
-fi
-cd ../../local-deployment/
+# Step 6: Update environment with Keycloak secret
+update_keycloak_secret() {
+    print_message "blue" "Updating environment with Keycloak secret..."
+    
+    if [ ! -f "secret.env" ]; then
+        print_message "red" "secret.env not found! Could not insert KEYCLOAK_MANAGEMENT_CLIENT_SECRET."
+        return 1
+    fi
+    
+    SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$SECRET" ]; then
+        print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
+        return 1
+    fi
+    
+    if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
+            print_message "red" "Failed to update existing KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
+            return 1
+        }
+    else
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> .env || {
+            print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
+            return 1
+        }
+    fi
+    
+    print_message "green" "Keycloak secret updated in .env successfully."
+}
+
 # Step 7: Pull credo-controller image
-echo "Pulling credo-controller image from GHCR..."
-docker pull ghcr.io/credebl/credo-controller:latest
+pull_credo_controller() {
+    print_message "blue" "Pulling credo-controller image..."
+    
+    docker pull ghcr.io/credebl/credo-controller:latest || {
+        print_message "red" "Failed to pull credo-controller image"
+        exit 1
+    }
+    
+    print_message "green" "credo-controller image pulled successfully."
+}
 
-# Step 8: Credebl master table data
-read -s -p "Enter your SendGrid API key: " SENDGRID_API_KEY
-read -p "Enter the SendGrid sender email: " EMAIL_FROM
-
-## Replace in credebl-master-table.json
-sed -i "s|##Machine Ip Address/Domain for agent setup##|$MACHINE_IP|g" credebl-master-table.json
-sed -i "s|## Platform API Ip Address##|http://$MACHINE_IP:5000|g" credebl-master-table.json
-sed -i "s|##Machine Ip Address for agent setup##|http://$MACHINE_IP:5000|g" credebl-master-table.json
-sed -i "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json
-sed -i "s|##Senders Mail ID##|$EMAIL_FROM|g" credebl-master-table.json
+# Step 8: Update master table configuration
+update_master_table() {
+    print_message "blue" "Updating master table configuration..."
+    
+    read -s -p "Enter your SendGrid API key: " SENDGRID_API_KEY
+    echo
+    read -p "Enter the SendGrid sender email: " EMAIL_FROM
+    
+    if [ -z "$SENDGRID_API_KEY" ] || [ -z "$EMAIL_FROM" ]; then
+        print_message "red" "SendGrid API key and sender email cannot be empty"
+        exit 1
+    fi
+    
+    sed_inplace "s|##Machine Ip Address/Domain for agent setup##|$MACHINE_IP|g" credebl-master-table.json || {
+        print_message "red" "Failed to update machine IP in master table"
+        exit 1
+    }
+    
+    sed_inplace "s|## Platform API Ip Address##|http://$MACHINE_IP:5000|g" credebl-master-table.json || {
+        print_message "red" "Failed to update platform API IP in master table"
+        exit 1
+    }
+    
+    sed_inplace "s|##Machine Ip Address for agent setup##|http://$MACHINE_IP:5000|g" credebl-master-table.json || {
+        print_message "red" "Failed to update agent setup IP in master table"
+        exit 1
+    }
+    
+    sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
+        print_message "red" "Failed to update SendGrid key in master table"
+        exit 1
+    }
+    
+    sed_inplace "s|##Senders Mail ID##|$EMAIL_FROM|g" credebl-master-table.json || {
+        print_message "red" "Failed to update sender email in master table"
+        exit 1
+    }
+    
+    print_message "green" "Master table configuration updated successfully."
+}
 
 # Step 9: Start Docker services
-echo "🚀 Starting services with docker-compose..."
-docker compose up -d
+start_services() {
+    print_message "blue" "Starting services with docker-compose..."
+    
+    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
+        print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
+        exit 1
+    fi
+    
+    docker compose up -d || {
+        print_message "red" "Failed to start services with docker-compose"
+        exit 1
+    }
+    
+    print_message "green" "Services started successfully."
+}
+
+# Main execution flow
+main() {
+    prepare_environment
+    install_docker
+    install_terraform
+    deploy_keycloak
+    setup_keycloak_terraform
+    update_keycloak_secret
+    pull_credo_controller
+    update_master_table
+    start_services
+    
+    print_message "green" "\n🎉 Deployment completed successfully!\n"
+    echo "Check the logs for details: ${LOG_FILE}"
+}
+
+main
