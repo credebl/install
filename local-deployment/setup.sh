@@ -65,7 +65,19 @@ prepare_environment() {
         exit 1
     fi
 
+    read -p "Enter your machine IP address: " SENDGRID_API_KEY
+    if [[ -z "$SENDGRID_API_KEY" ]]; then
+        print_message "red" "Machine IP cannot be empty"
+        exit 1
+    fi
+
+    
     sed_inplace "s|your-ip|$MACHINE_IP|g" .env || {
+        print_message "red" "Failed to update IP in .env file"
+        exit 1
+    }
+    
+    sed_inplace "s|sendgrid-apikey|$SENDGRID_API_KEY|g" .env || {
         print_message "red" "Failed to update IP in .env file"
         exit 1
     }
@@ -383,8 +395,6 @@ pull_credo_controller() {
 update_master_table() {
     print_message "blue" "Updating master table configuration..."
     
-    read -s -p "Enter your SendGrid API key: " SENDGRID_API_KEY
-    echo
     read -p "Enter the SendGrid sender email: " EMAIL_FROM
     
     if [ -z "$SENDGRID_API_KEY" ] || [ -z "$EMAIL_FROM" ]; then
