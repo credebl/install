@@ -65,7 +65,7 @@ prepare_environment() {
         exit 1
     fi
 
-    read -p "Enter your machine IP address: " SENDGRID_API_KEY
+    read -p "Enter sendgrid apikey address: " SENDGRID_API_KEY
     if [[ -z "$SENDGRID_API_KEY" ]]; then
         print_message "red" "Machine IP cannot be empty"
         exit 1
