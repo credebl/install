@@ -59,84 +59,82 @@ prepare_environment() {
         print_message "green" ".env already exists. Skipping copy."
     fi
 
-    # Required variables
+
+    # Set default empty values for optional variables
+    local AWS_ACCESS_KEY=${AWS_ACCESS_KEY:-}
+    local AWS_SECRET_KEY=${AWS_SECRET_KEY:-}
+    local AWS_REGION=${AWS_REGION:-}
+    local AWS_BUCKET=${AWS_BUCKET:-}
+    local AWS_PUBLIC_ACCESS_KEY=${AWS_PUBLIC_ACCESS_KEY:-}
+    local AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY:-}
+    local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
+    local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
+
+
+    # Collect required variables
     read -p "Enter your machine IP address: " MACHINE_IP
     [[ -z "$MACHINE_IP" ]] && { print_message "red" "Machine IP cannot be empty"; exit 1; }
 
     read -p "Enter SendGrid API key: " SENDGRID_API_KEY
     [[ -z "$SENDGRID_API_KEY" ]] && { print_message "red" "SendGrid API key cannot be empty"; exit 1; }
 
-    # Required S3 variables for connection URLs
-    echo -e "\n# Required for storing connection URLs from Agent and creating shortened URLs"
-    echo "# (These are REQUIRED for connecting to organizations)"
-    declare -A required_s3=(
-        ["AWS_S3_STOREOBJECT_ACCESS_KEY"]="Enter S3 access key for connection URLs"
-        ["AWS_S3_STOREOBJECT_SECRET_KEY"]="Enter S3 secret key for connection URLs"
-        ["AWS_S3_STOREOBJECT_REGION"]="Enter S3 region for connection URLs"
-        ["AWS_S3_STOREOBJECT_BUCKET"]="Enter S3 bucket name for connection URLs"
-    )
-    
-    for var in "${!required_s3[@]}"; do
-        read -p "${required_s3[$var]}: " $var
-        [[ -z "${!var}" ]] && { print_message "red" "This field cannot be empty"; exit 1; }
+    # Required S3 variables
+    echo -e "\n# Required for storing connection URLs"
+    read -p "Enter AWS S3 Access Key (required): " AWS_S3_STOREOBJECT_ACCESS_KEY
+    read -p "Enter AWS S3 Secret Key (required): " AWS_S3_STOREOBJECT_SECRET_KEY
+    read -p "Enter AWS S3 Region (required): " AWS_S3_STOREOBJECT_REGION
+    read -p "Enter AWS S3 Bucket (required): " AWS_S3_STOREOBJECT_BUCKET
+
+    # Validate required fields
+    for var in AWS_S3_STOREOBJECT_ACCESS_KEY AWS_S3_STOREOBJECT_SECRET_KEY \
+               AWS_S3_STOREOBJECT_REGION AWS_S3_STOREOBJECT_BUCKET; do
+        if [[ -z "${!var}" ]]; then
+            print_message "red" "$var is required"
+            exit 1
+        fi
     done
 
-    # Optional Bulk Issuance variables
-    echo -e "\n# Optional configuration for Bulk Issuance"
-    echo "# (Press Enter to skip if not using Bulk Issuance)"
-    declare -A optional_bulk=(
-        ["AWS_ACCESS_KEY"]="Enter AWS access key for Bulk Issuance"
-        ["AWS_SECRET_KEY"]="Enter AWS secret key for Bulk Issuance" 
-        ["AWS_REGION"]="Enter AWS region for Bulk Issuance"
-        ["AWS_BUCKET"]="Enter AWS bucket for Bulk Issuance"
-    )
+    # Optional variables
+    echo -e "\n# Optional for Bulk Issuance (press Enter to skip)"
+    read -p "Enter AWS Access Key (bulk): " AWS_ACCESS_KEY
+    read -p "Enter AWS Secret Key (bulk): " AWS_SECRET_KEY
+    read -p "Enter AWS Region (bulk): " AWS_REGION
+    read -p "Enter AWS Bucket (bulk): " AWS_BUCKET
 
-    for var in "${!optional_bulk[@]}"; do
-        read -p "${optional_bulk[$var]}: " $var
-    done
-
-    # Optional Org Logo variables
-    echo -e "\n# Optional configuration for Organization Logos"
-    echo "# (Press Enter to skip if not adding logos during org creation)"
-    declare -A optional_logo=(
-        ["AWS_PUBLIC_ACCESS_KEY"]="Enter public AWS access key for org logos"
-        ["AWS_PUBLIC_SECRET_KEY"]="Enter public AWS secret key for org logos"
-        ["AWS_PUBLIC_REGION"]="Enter AWS region for org logos"
-        ["AWS_ORG_LOGO_BUCKET_NAME"]="Enter bucket name for org logos"
-    )
-
-    for var in "${!optional_logo[@]}"; do
-        read -p "${optional_logo[$var]}: " $var
-    done
+    echo -e "\n# Optional for Org Logos (press Enter to skip)"
+    read -p "Enter AWS Public Access Key: " AWS_PUBLIC_ACCESS_KEY
+    read -p "Enter AWS Public Secret Key: " AWS_PUBLIC_SECRET_KEY
+    read -p "Enter AWS Public Region: " AWS_PUBLIC_REGION
+    read -p "Enter AWS Org Logo Bucket: " AWS_ORG_LOGO_BUCKET_NAME
 
     # Update .env file
     sed_inplace "
         s|your-ip|$MACHINE_IP|g;
         s|sendgrid-apikey|$SENDGRID_API_KEY|g;
         /^# Used for storing connection URL/,/^$/ {
-            s/^AWS_S3_STOREOBJECT_ACCESS_KEY=.*/AWS_S3_STOREOBJECT_ACCESS_KEY=$AWS_S3_STOREOBJECT_ACCESS_KEY/;
-            s/^AWS_S3_STOREOBJECT_SECRET_KEY=.*/AWS_S3_STOREOBJECT_SECRET_KEY=$AWS_S3_STOREOBJECT_SECRET_KEY/;
-            s/^AWS_S3_STOREOBJECT_REGION=.*/AWS_S3_STOREOBJECT_REGION=$AWS_S3_STOREOBJECT_REGION/;
-            s/^AWS_S3_STOREOBJECT_BUCKET=.*/AWS_S3_STOREOBJECT_BUCKET=$AWS_S3_STOREOBJECT_BUCKET/;
+            s/^AWS_S3_STOREOBJECT_ACCESS_KEY=.*/AWS_S3_STOREOBJECT_ACCESS_KEY=${AWS_S3_STOREOBJECT_ACCESS_KEY}/;
+            s/^AWS_S3_STOREOBJECT_SECRET_KEY=.*/AWS_S3_STOREOBJECT_SECRET_KEY=${AWS_S3_STOREOBJECT_SECRET_KEY}/;
+            s/^AWS_S3_STOREOBJECT_REGION=.*/AWS_S3_STOREOBJECT_REGION=${AWS_S3_STOREOBJECT_REGION}/;
+            s/^AWS_S3_STOREOBJECT_BUCKET=.*/AWS_S3_STOREOBJECT_BUCKET=${AWS_S3_STOREOBJECT_BUCKET}/;
         }
         /^# Used for Bulk issuance/,/^$/ {
-            s/^AWS_ACCESS_KEY=.*/AWS_ACCESS_KEY=$AWS_ACCESS_KEY/;
-            s/^AWS_SECRET_KEY=.*/AWS_SECRET_KEY=$AWS_SECRET_KEY/;
-            s/^AWS_REGION=.*/AWS_REGION=$AWS_REGION/;
-            s/^AWS_BUCKET=.*/AWS_BUCKET=$AWS_BUCKET/;
+            s/^AWS_ACCESS_KEY=.*/AWS_ACCESS_KEY=${AWS_ACCESS_KEY}/;
+            s/^AWS_SECRET_KEY=.*/AWS_SECRET_KEY=${AWS_SECRET_KEY}/;
+            s/^AWS_REGION=.*/AWS_REGION=${AWS_REGION}/;
+            s/^AWS_BUCKET=.*/AWS_BUCKET=${AWS_BUCKET}/;
         }
         /^# Used for Adding org-logo/,/^$/ {
-            s/^AWS_PUBLIC_ACCESS_KEY=.*/AWS_PUBLIC_ACCESS_KEY=$AWS_PUBLIC_ACCESS_KEY/;
-            s/^AWS_PUBLIC_SECRET_KEY=.*/AWS_PUBLIC_SECRET_KEY=$AWS_PUBLIC_SECRET_KEY/;
-            s/^AWS_PUBLIC_REGION=.*/AWS_PUBLIC_REGION=$AWS_PUBLIC_REGION/;
-            s/^AWS_ORG_LOGO_BUCKET_NAME=.*/AWS_ORG_LOGO_BUCKET_NAME=$AWS_ORG_LOGO_BUCKET_NAME/;
+            s/^AWS_PUBLIC_ACCESS_KEY=.*/AWS_PUBLIC_ACCESS_KEY=${AWS_PUBLIC_ACCESS_KEY}/;
+            s/^AWS_PUBLIC_SECRET_KEY=.*/AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY}/;
+            s/^AWS_PUBLIC_REGION=.*/AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION}/;
+            s/^AWS_ORG_LOGO_BUCKET_NAME=.*/AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME}/;
         }
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
     }
 
-    print_message "green" "Environment configuration completed successfully."
+    print_message "green" "Environment file configured successfully."
 }
 
 # Step 2: Install Docker based on OS
