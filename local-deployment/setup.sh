@@ -248,7 +248,8 @@ install_docker_macos() {
     print_message "blue" "Detected macOS. Checking Docker installation..."
     
     if ! command_exists docker; then
-        print_message "red" "Docker is not installed. Please install Docker Desktop for macOS."
+        print_message "red" "Docker is not installed. Please install Docker Desktop for macOS. \
+        You can refer to this URL: https://docs.docker.com/desktop/setup/install/mac-install/"
         exit 1
     else
         print_message "green" "Docker is already installed."

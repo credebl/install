@@ -35,7 +35,7 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=credebl
     volumes:
-      - ./platform-volume:/var/lib/postgresql/data
+      - platform-volume:/var/lib/postgresql/data
   seed:
     container_name: seed-service
     image: sahilk3/sovio:seed-1
