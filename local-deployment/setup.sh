@@ -59,26 +59,34 @@ prepare_environment() {
         print_message "green" ".env already exists. Skipping copy."
     fi
 
-    read -p "Enter your machine IP address: " MACHINE_IP
-    if [[ -z "$MACHINE_IP" ]]; then
-        print_message "red" "Machine IP cannot be empty"
-        exit 1
-    fi
+    # Define all required environment variables
+    declare -A env_vars=(
+        ["MACHINE_IP"]="Enter your machine IP address"
+        ["SENDGRID_API_KEY"]="Enter SendGrid API key" 
+        ["AWS_S3_STOREOBJECT_BUCKET"]="Enter S3 bucket name for storing connection URL"
+        ["AWS_S3_STOREOBJECT_ACCESS_KEY"]="Enter S3 bucket access key"
+        ["AWS_S3_STOREOBJECT_SECRET_KEY"]="Enter S3 bucket secret key"
+        ["AWS_S3_STOREOBJECT_REGION"]="Enter S3 bucket region"
+    )
 
-    read -p "Enter sendgrid apikey address: " SENDGRID_API_KEY
-    if [[ -z "$SENDGRID_API_KEY" ]]; then
-        print_message "red" "Machine IP cannot be empty"
-        exit 1
-    fi
+    for var in "${!env_vars[@]}"; do
+        read -p "${env_vars[$var]}: " $var
+        if [[ -z "${!var}" ]]; then
+            print_message "red" "${env_vars[$var]} cannot be empty"
+            exit 1
+        fi
+    done
 
-    
-    sed_inplace "s|your-ip|$MACHINE_IP|g" .env || {
-        print_message "red" "Failed to update IP in .env file"
-        exit 1
-    }
-    
-    sed_inplace "s|sendgrid-apikey|$SENDGRID_API_KEY|g" .env || {
-        print_message "red" "Failed to update IP in .env file"
+    # Update .env file in one go
+    sed_inplace "
+        s|your-ip|$MACHINE_IP|g;
+        s|sendgrid-apikey|$SENDGRID_API_KEY|g;
+        s/^AWS_S3_STOREOBJECT_BUCKET=.*/AWS_S3_STOREOBJECT_BUCKET=$AWS_S3_STOREOBJECT_BUCKET/;
+        s/^AWS_S3_STOREOBJECT_ACCESS_KEY=.*/AWS_S3_STOREOBJECT_ACCESS_KEY=$AWS_S3_STOREOBJECT_ACCESS_KEY/;
+        s/^AWS_S3_STOREOBJECT_SECRET_KEY=.*/AWS_S3_STOREOBJECT_SECRET_KEY=$AWS_S3_STOREOBJECT_SECRET_KEY/;
+        s/^AWS_S3_STOREOBJECT_REGION=.*/AWS_S3_STOREOBJECT_REGION=$AWS_S3_STOREOBJECT_REGION/
+    " .env || {
+        print_message "red" "Failed to update .env file"
         exit 1
     }
 }
