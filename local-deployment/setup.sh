@@ -517,7 +517,7 @@ update_env() {
 
     # Update .env file
     sed_inplace "
-        s|^SCHEMA_FILE_SERVER_TOKEN=.*|SCHEMA_FILE_SERVER_TOKEN=$SCHEMA_FILE_SERVER_TOKEN|;
+        s/^SCHEMA_FILE_SERVER_TOKEN=.*/SCHEMA_FILE_SERVER_TOKEN=${SCHEMA_FILE_SERVER_TOKEN}/;
     " .env || {
         print_message "red" "Failed to update Schema File Server configuration in .env"
         exit 1
