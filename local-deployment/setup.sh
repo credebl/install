@@ -498,8 +498,32 @@ start_services() {
         print_message "red" "Failed to start services with docker-compose"
         exit 1
     }
-    
+    print_message "yellow" "Waiting 30 seconds for Services to be fully ready..."
     print_message "green" "Services started successfully."
+}
+
+# Step 10: Update env file
+update_env() {
+    print_message "blue" "Updating environment with Schema File Server details..."
+    
+    # Wait for schema-file-server to start and get auth token
+    local SCHEMA_FILE_SERVER_TOKEN
+    SCHEMA_FILE_SERVER_TOKEN=$(docker logs schema-file-server 2>&1 | grep "Auth Token:" | awk '{print $3}' | head -n 1)
+    
+    if [[ -z "$SCHEMA_FILE_SERVER_TOKEN" ]]; then
+        print_message "red" "Failed to get Schema File Server auth token"
+        exit 1
+    fi
+
+    # Update .env file
+    sed_inplace "
+        s|^SCHEMA_FILE_SERVER_TOKEN=.*|SCHEMA_FILE_SERVER_TOKEN=$SCHEMA_FILE_SERVER_TOKEN|;
+    " .env || {
+        print_message "red" "Failed to update Schema File Server configuration in .env"
+        exit 1
+    }
+
+    print_message "green" "Schema File Server configuration updated successfully:"
 }
 
 # Main execution flow
@@ -513,6 +537,7 @@ main() {
     pull_credo_controller
     update_master_table
     start_services
+    update_env
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
     echo "Check the logs for details: ${LOG_FILE}"

@@ -275,6 +275,26 @@ services:
     image: ghcr.io/credebl/webhook:latest
     env_file:
       - ./.env
+  schema-file-server:
+    container_name: schema-file-server
+    depends_on:
+      - nats
+      - api-gateway
+      - user
+      - connection
+      - issuance
+      - ledger
+      - organization
+      - verification
+      - agent-provisioning
+      - agent-service
+      - cloud-wallet
+      - geolocation
+      - notification
+      - seed
+      - postgres
+      - webhook
+    image: sahilk3/schema-file-server
   
 volumes:
   platform-volume:
