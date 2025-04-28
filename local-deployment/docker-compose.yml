@@ -38,7 +38,7 @@ services:
       - platform-volume:/var/lib/postgresql/data
   seed:
     container_name: seed-service
-    image: sahilk3/sovio:seed-1
+    image: ghcr.io/credebl/seed:latest
     depends_on:
       postgres:
         condition: service_healthy
@@ -126,7 +126,7 @@ services:
       - ledger
       - seed
       - postgres
-    image: ghcr.io/credebl/organization:v2.0.0
+    image: ghcr.io/credebl/organization:latest
     env_file:
       - ./.env
   verification:
@@ -294,7 +294,7 @@ services:
       - seed
       - postgres
       - webhook
-    image: sahilk3/schema-file-server
+    image: ghcr.io/credebl/schema-file-server:latest
     env_file:
       - ./.env
   
