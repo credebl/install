@@ -529,7 +529,7 @@ update_env() {
 
     sed_inplace "
         s/^FILE_SERVER_TOKEN=.*/FILE_SERVER_TOKEN=${SCHEMA_FILE_SERVER_TOKEN}/;
-    " .agent.env || {
+    " agent.env || {
         print_message "red" "Failed to update Schema File Server configuration in agent.env"
         exit 1
     }
