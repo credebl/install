@@ -498,6 +498,7 @@ start_services() {
         print_message "red" "Failed to start services with docker-compose"
         exit 1
     }
+    sleep 30
     print_message "yellow" "Waiting 30 seconds for Services to be fully ready..."
     print_message "green" "Services started successfully."
 }
