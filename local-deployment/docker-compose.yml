@@ -295,6 +295,8 @@ services:
       - postgres
       - webhook
     image: sahilk3/schema-file-server
+    env_file:
+      - ./.env
   
 volumes:
   platform-volume:
