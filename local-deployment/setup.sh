@@ -133,6 +133,8 @@ prepare_environment() {
         print_message "red" "Failed to update .env file"
         exit 1
     }
+    
+    sed_inplace "s|your-ip|$MACHINE_IP|g" agent.env
 
     print_message "green" "Environment file configured successfully."
 }
@@ -509,6 +511,7 @@ update_env() {
     
     # Wait for schema-file-server to start and get auth token
     local SCHEMA_FILE_SERVER_TOKEN
+    local FILE_SERVER_TOKEN
     SCHEMA_FILE_SERVER_TOKEN=$(docker logs schema-file-server 2>&1 | grep "Auth Token:" | awk '{print $3}' | head -n 1)
     
     if [[ -z "$SCHEMA_FILE_SERVER_TOKEN" ]]; then
@@ -521,6 +524,13 @@ update_env() {
         s/^SCHEMA_FILE_SERVER_TOKEN=.*/SCHEMA_FILE_SERVER_TOKEN=${SCHEMA_FILE_SERVER_TOKEN}/;
     " .env || {
         print_message "red" "Failed to update Schema File Server configuration in .env"
+        exit 1
+    }
+
+    sed_inplace "
+        s/^FILE_SERVER_TOKEN=.*/FILE_SERVER_TOKEN=${SCHEMA_FILE_SERVER_TOKEN}/;
+    " .agent.env || {
+        print_message "red" "Failed to update Schema File Server configuration in agent.env"
         exit 1
     }
 
