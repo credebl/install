@@ -383,28 +383,6 @@ install_terraform_macos() {
     print_message "green" "Terraform installed successfully."
 }
 
-generate_jwt_secret() {
-    print_message "blue" "Generating JWT secret..."
-    
-    install_nodejs
-    
-    # Generate secure random secret
-    local JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
-    
-    if [[ -z "$SECRET" ]]; then
-        print_message "red" "Failed to generate JWT secret"
-        exit 1
-    fi
-
-    # Update .env file
-    sed_inplace "s/^JWT_TOKEN_SECRET=.*/JWT_TOKEN_SECRET=$JWT_TOKEN_SECRET/" .env || {
-        print_message "red" "Failed to update JWT secret in .env"
-        exit 1
-    }
-
-    print_message "green" "JWT secret generated and stored successfully"
-}
-
 # Step 4: Deploy Keycloak
 deploy_keycloak() {
     print_message "purple" "Setting up Keycloak..."
@@ -455,7 +433,7 @@ setup_keycloak_terraform() {
     print_message "green" "Keycloak setup completed via Terraform."
 }
 
-# Step 6: Update environment with Keycloak secret
+# Step 6: Update environment with Keycloak secret and JWT_token
 update_keycloak_secret() {
     print_message "blue" "Updating environment with Keycloak secret..."
     
@@ -488,6 +466,28 @@ update_keycloak_secret() {
     fi
     
     print_message "green" "Keycloak secret updated in .env successfully."
+}
+
+generate_jwt_secret() {
+    print_message "blue" "Generating JWT secret..."
+    
+    install_nodejs
+    
+    # Generate secure random secret
+    local JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
+    
+    if [[ -z "$JWT_TOKEN_SECRET" ]]; then
+        print_message "red" "Failed to generate JWT secret"
+        exit 1
+    fi
+
+    # Update .env file
+    sed_inplace "s/^JWT_TOKEN_SECRET=.*/JWT_TOKEN_SECRET=$JWT_TOKEN_SECRET/" .env || {
+        print_message "red" "Failed to update JWT secret in .env"
+        exit 1
+    }
+
+    print_message "green" "JWT secret generated and stored successfully"
 }
 
 # Step 7: Pull credo-controller image
@@ -596,10 +596,10 @@ main() {
     prepare_environment
     install_docker
     install_terraform
-    generate_jwt_secret
     deploy_keycloak
     setup_keycloak_terraform
     update_keycloak_secret
+    generate_jwt_secret
     pull_credo_controller
     update_master_table
     start_services
