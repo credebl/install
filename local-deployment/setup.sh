@@ -596,6 +596,7 @@ main() {
     prepare_environment
     install_docker
     install_terraform
+    generate_jwt_secret
     deploy_keycloak
     setup_keycloak_terraform
     update_keycloak_secret
