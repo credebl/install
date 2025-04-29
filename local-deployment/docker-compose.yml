@@ -300,6 +300,5 @@ services:
   
 volumes:
   platform-volume:
-  keycloak-volume:
   cache:
     driver: local
