@@ -139,7 +139,39 @@ prepare_environment() {
     print_message "green" "Environment file configured successfully."
 }
 
-# Step 2: Install Docker based on OS
+# Step 2: Check  docker and node, if not available installs node
+install_nodejs() {
+    # 1. Check and install Node.js if needed
+    if ! command_exists -v node &> /dev/null; then
+        print_message "yellow" "Node.js not found. Installing..."
+        
+        if [[ "$OS_ID" == "ubuntu" || "$OS_ID" == "debian" ]]; then
+            # Linux installation
+            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+            sudo apt-get install -y nodejs || {
+                print_message "red" "Failed to install Node.js"
+                exit 1
+            }
+        elif [[ "$OS_ID" == "Darwin" ]]; then
+            # macOS installation
+            if ! command_exists -v brew &> /dev/null; then
+                print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
+                exit 1
+            fi
+            brew install node || {
+                print_message "red" "Failed to install Node.js"
+                exit 1
+            }
+        else
+            print_message "red" "Unsupported OS for Node.js installation"
+            exit 1
+        fi
+        print_message "green" "Node.js installed successfully"
+    else
+        print_message "green" "Node.js already installed"
+    fi
+}
+
 install_docker() {
     local OS_ID
     if [ -f /etc/os-release ]; then
@@ -349,6 +381,28 @@ install_terraform_macos() {
     }
     
     print_message "green" "Terraform installed successfully."
+}
+
+generate_jwt_secret() {
+    print_message "blue" "Generating JWT secret..."
+    
+    install_nodejs
+    
+    # Generate secure random secret
+    local JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
+    
+    if [[ -z "$SECRET" ]]; then
+        print_message "red" "Failed to generate JWT secret"
+        exit 1
+    fi
+
+    # Update .env file
+    sed_inplace "s/^JWT_TOKEN_SECRET=.*/JWT_TOKEN_SECRET=$JWT_TOKEN_SECRET/" .env || {
+        print_message "red" "Failed to update JWT secret in .env"
+        exit 1
+    }
+
+    print_message "green" "JWT secret generated and stored successfully"
 }
 
 # Step 4: Deploy Keycloak
