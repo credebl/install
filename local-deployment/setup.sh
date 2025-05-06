@@ -45,6 +45,21 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+prompt_yes_no() {
+  local prompt_message=$1
+  local response
+
+  while true; do
+    read -p "$prompt_message (yes/no): " response
+    case "$response" in
+      yes|no) break ;;
+      *) echo "Please enter only 'yes' or 'no'." ;;
+    esac
+  done
+
+  echo "$response"
+}
+
 # Step 1: Prepare environment files
 prepare_environment() {
     print_message "yellow" "Preparing environment files..."
@@ -78,6 +93,9 @@ prepare_environment() {
     read -p "Enter SendGrid API key: " SENDGRID_API_KEY
     [[ -z "$SENDGRID_API_KEY" ]] && { print_message "red" "SendGrid API key cannot be empty"; exit 1; }
 
+    read -p "Enter the SendGrid sender email: " EMAIL_FROM
+    [[ -z "$EMAIL_FROM" ]] && { print_message "red" "SendGrid sender email cannot be empty"; exit 1; }
+
     # Required S3 variables
     echo -e "\n# Required for storing connection URLs"
     read -p "Enter AWS S3 Access Key (required): " AWS_S3_STOREOBJECT_ACCESS_KEY
@@ -94,18 +112,22 @@ prepare_environment() {
         fi
     done
 
-    # Optional variables
-    echo -e "\n# Optional for Bulk Issuance (press Enter to skip)"
+    bulk_issuance=$(prompt_yes_no "Do you want to use bulk issuance?")
+    if [ "$bulk_issuance" == "yes" ]; then
     read -p "Enter AWS Access Key (bulk): " AWS_ACCESS_KEY
     read -p "Enter AWS Secret Key (bulk): " AWS_SECRET_KEY
     read -p "Enter AWS Region (bulk): " AWS_REGION
     read -p "Enter AWS Bucket (bulk): " AWS_BUCKET
+    fi
 
-    echo -e "\n# Optional for Org Logos (press Enter to skip)"
+    # Second prompt
+    org_logo=$(prompt_yes_no "Do you want to use org logos?")
+    if [ "$org_logo" == "yes" ]; then
     read -p "Enter AWS Public Access Key: " AWS_PUBLIC_ACCESS_KEY
     read -p "Enter AWS Public Secret Key: " AWS_PUBLIC_SECRET_KEY
     read -p "Enter AWS Public Region: " AWS_PUBLIC_REGION
     read -p "Enter AWS Org Logo Bucket: " AWS_ORG_LOGO_BUCKET_NAME
+    fi
 
     # Update .env file
     sed_inplace "
@@ -129,6 +151,7 @@ prepare_environment() {
             s/^AWS_PUBLIC_REGION=.*/AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION}/;
             s/^AWS_ORG_LOGO_BUCKET_NAME=.*/AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME}/;
         }
+        s/^SHORTENED_URL_DOMAIN=.*/SHORTENED_URL_DOMAIN=https://s3.${AWS_S3_STOREOBJECT_REGION}.amazonaws.com/${AWS_S3_STOREOBJECT_BUCKET}/;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
@@ -139,9 +162,12 @@ prepare_environment() {
     print_message "green" "Environment file configured successfully."
 }
 
-# Step 2: Check  docker and node, if not available installs node
+# Step 2: Check  ports availability, docker and node, if not available installs node
+check_ports(){
+    
+}
 install_nodejs() {
-    # 1. Check and install Node.js if needed
+    # Check and install Node.js if needed
     if ! command_exists -v node &> /dev/null; then
         print_message "yellow" "Node.js not found. Installing..."
         
@@ -505,8 +531,6 @@ pull_credo_controller() {
 # Step 8: Update master table configuration
 update_master_table() {
     print_message "blue" "Updating master table configuration..."
-    
-    read -p "Enter the SendGrid sender email: " EMAIL_FROM
     
     if [ -z "$SENDGRID_API_KEY" ] || [ -z "$EMAIL_FROM" ]; then
         print_message "red" "SendGrid API key and sender email cannot be empty"
