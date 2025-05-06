@@ -102,6 +102,8 @@ services:
     image: ghcr.io/credebl/issuance:latest
     env_file:
       - ./.env
+    volumes:
+    - $PWD/apps/uploadedFiles/exports:/app/uploadedFiles/exports
   ledger:
     container_name: ledger-service
     depends_on:
@@ -232,8 +234,12 @@ services:
   schema-file-server:
     container_name: schema-file-server
     image: ghcr.io/credebl/schema-file-server:latest
+    ports:
+      - '4000:4000'
     env_file:
       - ./.env
+    volumes:
+      - $PWD/apps/schemas:/app/schemas
   
 volumes:
   platform-volume:
