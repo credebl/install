@@ -38,7 +38,7 @@ services:
       - platform-volume:/var/lib/postgresql/data
   seed:
     container_name: seed-service
-    image: ghcr.io/credebl/seed:latest
+    image: sahilk3/sovio:seed
     depends_on:
       postgres:
         condition: service_healthy
@@ -65,7 +65,7 @@ services:
       - api-gateway
       - seed
       - postgres
-    image: ghcr.io/credebl/user:latest
+    image: sahilk3/sovio:user
     env_file:
       - ./.env
   utility:
@@ -75,7 +75,7 @@ services:
       - api-gateway
       - seed
       - postgres  
-    image: ghcr.io/credebl/utility:latest
+    image: sahilk3/sovio:utility
     env_file:
       - ./.env
   connection:
@@ -202,7 +202,7 @@ services:
     depends_on:
       - nats
       - api-gateway
-    image: ghcr.io/credebl/cloud-wallet:latest
+    image: sahilk3/sovio:cloud-wallet
     env_file:
       - ./.env
   geolocation:

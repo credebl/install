@@ -72,7 +72,7 @@ prepare_environment() {
 
 
     # Collect required variables
-    read -p "Enter your machine IP address: " MACHINE_IP
+    MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
     [[ -z "$MACHINE_IP" ]] && { print_message "red" "Machine IP cannot be empty"; exit 1; }
 
     read -p "Enter SendGrid API key: " SENDGRID_API_KEY
