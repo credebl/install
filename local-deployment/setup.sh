@@ -60,6 +60,21 @@ prompt_yes_no() {
   echo "$response"
 }
 
+validate_non_empty() {
+    local prompt="$1"
+    local error_msg="$2"
+    local var_name="$3"
+    
+    while true; do
+        read -p "$prompt" $var_name
+        if [ -z "${!var_name}" ]; then
+            print_message "red" "$error_msg"
+        else
+            break
+        fi
+    done
+}
+
 # Step 1: Prepare environment files
 prepare_environment() {
     print_message "yellow" "Preparing environment files..."
@@ -97,36 +112,56 @@ prepare_environment() {
     [[ -z "$EMAIL_FROM" ]] && { print_message "red" "SendGrid sender email cannot be empty"; exit 1; }
 
     # Required S3 variables
-    echo -e "\n# Required for storing connection URLs"
-    read -p "Enter AWS S3 Access Key (required): " AWS_S3_STOREOBJECT_ACCESS_KEY
-    read -p "Enter AWS S3 Secret Key (required): " AWS_S3_STOREOBJECT_SECRET_KEY
-    read -p "Enter AWS S3 Region (required): " AWS_S3_STOREOBJECT_REGION
-    read -p "Enter AWS S3 Bucket (required): " AWS_S3_STOREOBJECT_BUCKET
+    echo -e "\n# Provide S3 credentials required for storing connection URLs"
+    validate_non_empty "Enter AWS S3 Access Key (required): " "AWS Access Key cannot be empty" AWS_S3_STOREOBJECT_ACCESS_KEY
+    validate_non_empty "Enter AWS S3 Secret Key (required): " "AWS Secret Key cannot be empty" AWS_S3_STOREOBJECT_SECRET_KEY
+    validate_non_empty "Enter AWS S3 Region (required): " "AWS Region cannot be empty" AWS_S3_STOREOBJECT_REGION
+    validate_non_empty "Enter AWS S3 Bucket (required): " "AWS Bucket cannot be empty" AWS_S3_STOREOBJECT_BUCKET
+    # read -p "Enter AWS S3 Access Key (required): " AWS_S3_STOREOBJECT_ACCESS_KEY
+    # read -p "Enter AWS S3 Secret Key (required): " AWS_S3_STOREOBJECT_SECRET_KEY
+    # read -p "Enter AWS S3 Region (required): " AWS_S3_STOREOBJECT_REGION
+    # read -p "Enter AWS S3 Bucket (required): " AWS_S3_STOREOBJECT_BUCKET
 
-    # Validate required fields
-    for var in AWS_S3_STOREOBJECT_ACCESS_KEY AWS_S3_STOREOBJECT_SECRET_KEY \
-               AWS_S3_STOREOBJECT_REGION AWS_S3_STOREOBJECT_BUCKET; do
-        if [[ -z "${!var}" ]]; then
-            print_message "red" "$var is required"
-            exit 1
-        fi
-    done
+    # # Validate required fields
+    # for var in AWS_S3_STOREOBJECT_ACCESS_KEY AWS_S3_STOREOBJECT_SECRET_KEY \
+    #            AWS_S3_STOREOBJECT_REGION AWS_S3_STOREOBJECT_BUCKET; do
+    #     if [[ -z "${!var}" ]]; then
+    #         print_message "red" "$var is required"
+    #         exit 1
+    #     fi
+    # done
+
+    # bulk_issuance=$(prompt_yes_no "Do you want to use bulk issuance?")
+    # if [ "$bulk_issuance" == "yes" ]; then
+    # read -p "Enter AWS Access Key (bulk): " AWS_ACCESS_KEY
+    # read -p "Enter AWS Secret Key (bulk): " AWS_SECRET_KEY
+    # read -p "Enter AWS Region (bulk): " AWS_REGION
+    # read -p "Enter AWS Bucket (bulk): " AWS_BUCKET
+    # fi
+
+    # # Second prompt
+    # org_logo=$(prompt_yes_no "Do you want to upload org logos?")
+    # if [ "$org_logo" == "yes" ]; then
+    # read -p "Enter AWS Public Access Key: " AWS_PUBLIC_ACCESS_KEY
+    # read -p "Enter AWS Public Secret Key: " AWS_PUBLIC_SECRET_KEY
+    # read -p "Enter AWS Public Region: " AWS_PUBLIC_REGION
+    # read -p "Enter AWS Org Logo Bucket: " AWS_ORG_LOGO_BUCKET_NAME
+    # fi
 
     bulk_issuance=$(prompt_yes_no "Do you want to use bulk issuance?")
     if [ "$bulk_issuance" == "yes" ]; then
-    read -p "Enter AWS Access Key (bulk): " AWS_ACCESS_KEY
-    read -p "Enter AWS Secret Key (bulk): " AWS_SECRET_KEY
-    read -p "Enter AWS Region (bulk): " AWS_REGION
-    read -p "Enter AWS Bucket (bulk): " AWS_BUCKET
+        validate_non_empty "Enter AWS Access Key (bulk): " "AWS Access Key cannot be empty" AWS_ACCESS_KEY
+        validate_non_empty "Enter AWS Secret Key (bulk): " "AWS Secret Key cannot be empty" AWS_SECRET_KEY
+        validate_non_empty "Enter AWS Region (bulk): " "AWS Region cannot be empty" AWS_REGION
+        validate_non_empty "Enter AWS Bucket (bulk): " "AWS Bucket cannot be empty" AWS_BUCKET
     fi
 
-    # Second prompt
     org_logo=$(prompt_yes_no "Do you want to upload org logos?")
     if [ "$org_logo" == "yes" ]; then
-    read -p "Enter AWS Public Access Key: " AWS_PUBLIC_ACCESS_KEY
-    read -p "Enter AWS Public Secret Key: " AWS_PUBLIC_SECRET_KEY
-    read -p "Enter AWS Public Region: " AWS_PUBLIC_REGION
-    read -p "Enter AWS Org Logo Bucket: " AWS_ORG_LOGO_BUCKET_NAME
+        validate_non_empty "Enter AWS Public Access Key: " "AWS Public Access Key cannot be empty" AWS_PUBLIC_ACCESS_KEY
+        validate_non_empty "Enter AWS Public Secret Key: " "AWS Public Secret Key cannot be empty" AWS_PUBLIC_SECRET_KEY
+        validate_non_empty "Enter AWS Public Region: " "AWS Public Region cannot be empty" AWS_PUBLIC_REGION
+        validate_non_empty "Enter AWS Org Logo Bucket: " "AWS Org Logo Bucket cannot be empty" AWS_ORG_LOGO_BUCKET_NAME
     fi
 
     # Update .env file
@@ -252,7 +287,6 @@ update_ports_config() {
 
     print_message "green" "Updated .env file and docker-compose available ports"
 }
-
 
 install_nodejs() {
     # Check and install Node.js if needed
