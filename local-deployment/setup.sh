@@ -60,21 +60,6 @@ prompt_yes_no() {
   echo "$response"
 }
 
-validate_non_empty() {
-    local prompt="$1"
-    local error_msg="$2"
-    local var_name="$3"
-    
-    while true; do
-        read -p "$prompt" $var_name
-        if [ -z "${!var_name}" ]; then
-            print_message "red" "$error_msg"
-        else
-            break
-        fi
-    done
-}
-
 # Step 1: Prepare environment files
 prepare_environment() {
     print_message "yellow" "Preparing environment files..."
@@ -86,9 +71,34 @@ prepare_environment() {
             exit 1
         }
     else
-        print_message "green" ".env already exists. Skipping copy."
+        print_message "green" ".env already exists. Skipping copy and checking existing values..."
     fi
 
+    handle_existing_value() {
+        local var_name=$1
+        local prompt=$2
+        local required=${3:-true}  # Default to true if not specified
+        local current_value=$(grep "^$var_name=" .env | cut -d'=' -f2-)
+        
+        # Check for existing value
+        if [ -n "$current_value" ]; then
+            if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
+                eval "$var_name=\"$current_value\""
+                print_message "green" "Using existing $var_name"
+                return
+            fi
+        fi
+        
+        # Input loop
+        while true; do
+            read -p "$prompt: " $var_name
+            if [ "$required" = "true" ] && [ -z "${!var_name}" ]; then
+                print_message "red" "Value cannot be empty"
+            else
+                break
+            fi
+        done
+    }
 
     # Set default empty values for optional variables
     local AWS_ACCESS_KEY=${AWS_ACCESS_KEY:-}
@@ -103,37 +113,34 @@ prepare_environment() {
 
     # Collect required variables
     MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
-    [[ -z "$MACHINE_IP" ]] && { print_message "red" "Machine IP cannot be empty"; exit 1; }
 
-    validate_non_empty "Enter SendGrid API key: " "SendGrid API key cannot be empty" SENDGRID_API_KEY
-    [[ -z "$SENDGRID_API_KEY" ]] && { print_message "red" "SendGrid API key cannot be empty"; exit 1; }
-
-    validate_non_empty "Enter the SendGrid sender email: " "SendGrid sender email cannot be empty" EMAIL_FROM
-    [[ -z "$EMAIL_FROM" ]] && { print_message "red" "SendGrid sender email cannot be empty"; exit 1; }
+    handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
+    handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
 
     # Required S3 variables
     echo -e "\n# Provide S3 credentials, required for storing connection URLs"
-    validate_non_empty "Enter AWS S3 Access Key (required): " "AWS Access Key cannot be empty" AWS_S3_STOREOBJECT_ACCESS_KEY
-    validate_non_empty "Enter AWS S3 Secret Key (required): " "AWS Secret Key cannot be empty" AWS_S3_STOREOBJECT_SECRET_KEY
-    validate_non_empty "Enter AWS S3 Region (required): " "AWS Region cannot be empty" AWS_S3_STOREOBJECT_REGION
-    validate_non_empty "Enter AWS S3 Bucket (required): " "AWS Bucket cannot be empty" AWS_S3_STOREOBJECT_BUCKET
+    handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
+    handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
+    handle_existing_value "AWS_S3_STOREOBJECT_REGION" "Enter AWS S3 Region"
+    handle_existing_value "AWS_S3_STOREOBJECT_BUCKET" "Enter AWS S3 Bucket"
 
     bulk_issuance=$(prompt_yes_no "Do you want to use bulk issuance?")
     if [ "$bulk_issuance" == "yes" ]; then
-        echo -e "\n# Provide S3 credentials, required for bulk issuance"
-        validate_non_empty "Enter AWS Access Key (bulk): " "AWS Access Key cannot be empty" AWS_ACCESS_KEY
-        validate_non_empty "Enter AWS Secret Key (bulk): " "AWS Secret Key cannot be empty" AWS_SECRET_KEY
-        validate_non_empty "Enter AWS Region (bulk): " "AWS Region cannot be empty" AWS_REGION
-        validate_non_empty "Enter AWS Bucket (bulk): " "AWS Bucket cannot be empty" AWS_BUCKET
+        echo -e "\n# Provide S3 credentials for bulk issuance"
+        handle_existing_value "AWS_ACCESS_KEY" "Enter AWS Access Key (bulk)"
+        handle_existing_value "AWS_SECRET_KEY" "Enter AWS Secret Key (bulk)"
+        handle_existing_value "AWS_REGION" "Enter AWS Region (bulk)"
+        handle_existing_value "AWS_BUCKET" "Enter AWS Bucket (bulk)"
     fi
 
+    # Optional org logos
     org_logo=$(prompt_yes_no "Do you want to upload org logos?")
     if [ "$org_logo" == "yes" ]; then
-        echo -e "\n# Provide S3 credentials, required for uploading organization logo"
-        validate_non_empty "Enter AWS Public Access Key: " "AWS Public Access Key cannot be empty" AWS_PUBLIC_ACCESS_KEY
-        validate_non_empty "Enter AWS Public Secret Key: " "AWS Public Secret Key cannot be empty" AWS_PUBLIC_SECRET_KEY
-        validate_non_empty "Enter AWS Public Region: " "AWS Public Region cannot be empty" AWS_PUBLIC_REGION
-        validate_non_empty "Enter AWS Org Logo Bucket: " "AWS Org Logo Bucket cannot be empty" AWS_ORG_LOGO_BUCKET_NAME
+        echo -e "\n# Provide S3 credentials for org logos"
+        handle_existing_value "AWS_PUBLIC_ACCESS_KEY" "Enter AWS Public Access Key"
+        handle_existing_value "AWS_PUBLIC_SECRET_KEY" "Enter AWS Public Secret Key"
+        handle_existing_value "AWS_PUBLIC_REGION" "Enter AWS Public Region"
+        handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
     fi
 
     # Update .env file
