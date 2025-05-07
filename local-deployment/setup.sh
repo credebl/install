@@ -121,7 +121,7 @@ prepare_environment() {
     fi
 
     # Second prompt
-    org_logo=$(prompt_yes_no "Do you want to use org logos?")
+    org_logo=$(prompt_yes_no "Do you want to upload org logos?")
     if [ "$org_logo" == "yes" ]; then
     read -p "Enter AWS Public Access Key: " AWS_PUBLIC_ACCESS_KEY
     read -p "Enter AWS Public Secret Key: " AWS_PUBLIC_SECRET_KEY
@@ -151,7 +151,7 @@ prepare_environment() {
             s/^AWS_PUBLIC_REGION=.*/AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION}/;
             s/^AWS_ORG_LOGO_BUCKET_NAME=.*/AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME}/;
         }
-        s/^SHORTENED_URL_DOMAIN=.*/SHORTENED_URL_DOMAIN=https://s3.${AWS_S3_STOREOBJECT_REGION}.amazonaws.com/${AWS_S3_STOREOBJECT_BUCKET}/;
+        s#^SHORTENED_URL_DOMAIN=.*#SHORTENED_URL_DOMAIN=https://s3.${AWS_S3_STOREOBJECT_REGION}.amazonaws.com/${AWS_S3_STOREOBJECT_BUCKET}#;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
@@ -163,9 +163,97 @@ prepare_environment() {
 }
 
 # Step 2: Check  ports availability, docker and node, if not available installs node
-check_ports(){
+declare -A PORTS=(
+    ["postgres"]=5432
+    ["api-gateway"]=5000
+    ["redis"]=6379
+    ["keycloak"]=8080
+    ["schema-file-server"]=4000
+)
+
+# Function to check if port is available
+is_port_available() {
+    local port=$1
     
+    # Method 1: Try netcat first (most reliable)
+    if command -v nc &>/dev/null; then
+        if nc -z 127.0.0.1 "$port" &>/dev/null; then
+            return 1 # Port is in use
+        else
+            return 0 # Port is available
+        fi
+    fi
+    
+    # Method 2: macOS fallback using lsof
+    if [[ "$OSTYPE" == "darwin"* ]] && command -v lsof &>/dev/null; then
+        if lsof -i :"$port" -sTCP:LISTEN &>/dev/null; then
+            return 1
+        else
+            return 0
+        fi
+    fi
+    
+    # Method 3: Linux /dev/tcp check (bash builtin)
+    if (echo >/dev/tcp/127.0.0.1/"$port") &>/dev/null 2>&1; then
+        return 1
+    else
+        return 0
+    fi
 }
+
+# Function to find first available port from list
+find_available_port() {
+    local base_port=$1
+    local max_attempts=10
+    local current_port=$base_port
+    
+    for (( i=0; i<max_attempts; i++ )); do
+        if is_port_available "$current_port"; then
+            echo "$current_port"
+            return 0
+        fi
+        ((current_port++))
+    done
+    
+    print_message "red" "Could not find available port after $max_attempts attempts (base: $base_port)"
+    exit 1
+}
+
+# Check and assign ports
+configure_ports() {
+    declare -gA USED_PORTS  # Will store the final port assignments
+
+    for service in "${!PORTS[@]}"; do
+        base_port="${PORTS[$service]}"
+        available_port=$(find_available_port "$base_port")
+        
+        USED_PORTS["$service"]="$available_port"
+        print_message "green" "Assigned port $available_port for $service"
+    done
+
+    # Update .env file with selected ports
+    update_ports_config
+}
+
+update_ports_config() {
+    sed_inplace "
+        s|5432|${USED_PORTS["postgres"]}|g;
+        s|5000|${USED_PORTS["api-gateway"]}|g;
+        s|6379|${USED_PORTS["redis"]}|g;
+        s|8080|${USED_PORTS["keycloak"]}|g;
+        s|4000|${USED_PORTS["schema-file-server"]}|g;
+    " .env
+    sed_inplace "
+        s|5432:5432|${USED_PORTS["postgres"]}:5432|;
+        s|5000:5000|${USED_PORTS["api-gateway"]}:5000|;
+        s|6379:6379|${USED_PORTS["redis"]}:6379|;
+        s|4000:4000|${USED_PORTS["schema-file-server"]}:4000|;
+    " docker-compose.yml
+
+    print_message "green" "Updated .env file and docker-compose available ports"
+}
+
+
 install_nodejs() {
     # Check and install Node.js if needed
     if ! command_exists -v node &> /dev/null; then
@@ -416,7 +504,7 @@ deploy_keycloak() {
     if ! docker ps | grep -q "keycloak"; then
         print_message "purple" "Starting Keycloak container..."
         
-        docker run -d -p 8080:8080 --name keycloak \
+        docker run -d -p ${USED_PORTS["keycloak"]}:8080 --name keycloak \
             -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
             quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev || {
                 print_message "red" "Failed to start Keycloak container"
@@ -612,12 +700,14 @@ update_env() {
         exit 1
     }
 
+    chmod +x $PWD/apps/schemas
     print_message "green" "Schema File Server configuration updated successfully:"
 }
 
 # Main execution flow
 main() {
     prepare_environment
+    configure_ports
     install_docker
     install_terraform
     deploy_keycloak
