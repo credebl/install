@@ -139,7 +139,7 @@ prepare_environment() {
     # Update .env file
     sed_inplace "
         s|your-ip|$MACHINE_IP|g;
-        s|sendgrid-apikey|$SENDGRID_API_KEY|g;
+        s/^SENDGRID_API_KEY=.*/SENDGRID_API_KEY=${SENDGRID_API_KEY}/;
         /^# Used for storing connection URL/,/^$/ {
             s/^AWS_S3_STOREOBJECT_ACCESS_KEY=.*/AWS_S3_STOREOBJECT_ACCESS_KEY=${AWS_S3_STOREOBJECT_ACCESS_KEY}/;
             s/^AWS_S3_STOREOBJECT_SECRET_KEY=.*/AWS_S3_STOREOBJECT_SECRET_KEY=${AWS_S3_STOREOBJECT_SECRET_KEY}/;
