@@ -66,7 +66,7 @@ cleanup_files() {
     fi
     
     # Keep .env file but you can add removal here if needed
-    print_message "green" "Preserved .env file (modify cleanup_files() if you want to remove it)"
+    print_message "green" "Preserved .env file"
 }
 
 # 3. Stop and remove specific containers
@@ -74,7 +74,7 @@ cleanup_containers() {
     print_message "blue" "Cleaning up application containers..."
     
     # List of containers created by setup.sh
-    local containers=("keycloak" "credo-controller")
+    local containers=("keycloak")
     
     for container in "${containers[@]}"; do
         if docker ps -a --format '{{.Names}}' | grep -q "^${container}\$"; then
@@ -87,6 +87,21 @@ cleanup_containers() {
         fi
     done
     
+    # Cleanup credo-controller by image name or Platform-admin pattern
+    local credo_containers=$(docker ps -a --format '{{.ID}} {{.Names}} {{.Image}}' | \
+        awk '/Platform-admin/ || /ghcr\.io\/credebl\/credo-controller:latest/ {print $1}')
+    
+    if [ -n "$credo_containers" ]; then
+        echo "$credo_containers" | while read -r container_id; do
+            docker stop "$container_id" >/dev/null 2>&1 && \
+                docker rm -f "$container_id" >/dev/null 2>&1 && \
+                print_message "green" "Removed credo-controller container: $container_id" || \
+                print_message "red" "Failed to remove credo-controller container: $container_id"
+        done
+    else
+        print_message "green" "No credo-controller containers found"
+    fi
+
     # Remove containers created by docker (using the compose project name)
     if [ -f "docker-compose.yml" ]; then
         print_message "blue" "Removing docker containers..."

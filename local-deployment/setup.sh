@@ -541,7 +541,7 @@ setup_keycloak_terraform() {
     }
     
     print_message "yellow" "Waiting 30 seconds for Keycloak to be fully ready..."
-    sleep 30
+    sleep 40
     
     terraform apply -auto-approve || {
         print_message "red" "Terraform apply failed"
@@ -704,7 +704,9 @@ update_env() {
         exit 1
     }
 
-    chmod +x $PWD/apps/schemas
+    echo "Enter password to grant execute permission for saving schemas..."
+    sudo chmod +x "$PWD/apps/schemas"
+
     print_message "green" "Schema File Server configuration updated successfully:"
 }
 
