@@ -52,12 +52,11 @@ prompt_yes_no() {
   while true; do
     read -p "$prompt_message (yes/no): " response
     case "$response" in
-      yes|no) break ;;
+      yes|y) return 0 ;;
+      no|n) return 1 ;;
       *) echo "Please enter only 'yes' or 'no'." ;;
     esac
   done
-
-  echo "$response"
 }
 
 # Step 1: Prepare environment files
@@ -74,6 +73,10 @@ prepare_environment() {
         print_message "green" ".env already exists. Skipping copy and checking existing values..."
     fi
 
+    escape_sed() {
+        echo "$1" | sed -e 's/[\/&]/\\&/g'
+    }
+
     handle_existing_value() {
         local var_name=$1
         local prompt=$2
@@ -86,6 +89,9 @@ prepare_environment() {
                 eval "$var_name=\"$current_value\""
                 print_message "green" "Using existing $var_name"
                 return
+            else
+                print_message "yellow" "Will prompt for new $var_name value"
+                unset current_value
             fi
         fi
         
@@ -100,17 +106,6 @@ prepare_environment() {
         done
     }
 
-    # Set default empty values for optional variables
-    local AWS_ACCESS_KEY=${AWS_ACCESS_KEY:-}
-    local AWS_SECRET_KEY=${AWS_SECRET_KEY:-}
-    local AWS_REGION=${AWS_REGION:-}
-    local AWS_BUCKET=${AWS_BUCKET:-}
-    local AWS_PUBLIC_ACCESS_KEY=${AWS_PUBLIC_ACCESS_KEY:-}
-    local AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY:-}
-    local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
-    local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
-
-
     # Collect required variables
     MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
 
@@ -124,8 +119,8 @@ prepare_environment() {
     handle_existing_value "AWS_S3_STOREOBJECT_REGION" "Enter AWS S3 Region"
     handle_existing_value "AWS_S3_STOREOBJECT_BUCKET" "Enter AWS S3 Bucket"
 
-    bulk_issuance=$(prompt_yes_no "Do you want to use bulk issuance?")
-    if [ "$bulk_issuance" == "yes" ]; then
+    # bulk issuance
+    if prompt_yes_no "Do you want to use bulk issuance?"; then
         echo -e "\n# Provide S3 credentials for bulk issuance"
         handle_existing_value "AWS_ACCESS_KEY" "Enter AWS Access Key (bulk)"
         handle_existing_value "AWS_SECRET_KEY" "Enter AWS Secret Key (bulk)"
@@ -134,45 +129,41 @@ prepare_environment() {
     fi
 
     # Optional org logos
-    org_logo=$(prompt_yes_no "Do you want to upload org logos?")
-    if [ "$org_logo" == "yes" ]; then
+    if prompt_yes_no "Do you want to upload org logos?"; then
         echo -e "\n# Provide S3 credentials for org logos"
         handle_existing_value "AWS_PUBLIC_ACCESS_KEY" "Enter AWS Public Access Key"
         handle_existing_value "AWS_PUBLIC_SECRET_KEY" "Enter AWS Public Secret Key"
         handle_existing_value "AWS_PUBLIC_REGION" "Enter AWS Public Region"
         handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
     fi
-
-    # Update .env file
+    
     sed_inplace "
-        s|your-ip|$MACHINE_IP|g;
-        s/^SENDGRID_API_KEY=.*/SENDGRID_API_KEY=${SENDGRID_API_KEY}/;
+        s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
         /^# Used for storing connection URL/,/^$/ {
-            s/^AWS_S3_STOREOBJECT_ACCESS_KEY=.*/AWS_S3_STOREOBJECT_ACCESS_KEY=${AWS_S3_STOREOBJECT_ACCESS_KEY}/;
-            s/^AWS_S3_STOREOBJECT_SECRET_KEY=.*/AWS_S3_STOREOBJECT_SECRET_KEY=${AWS_S3_STOREOBJECT_SECRET_KEY}/;
-            s/^AWS_S3_STOREOBJECT_REGION=.*/AWS_S3_STOREOBJECT_REGION=${AWS_S3_STOREOBJECT_REGION}/;
-            s/^AWS_S3_STOREOBJECT_BUCKET=.*/AWS_S3_STOREOBJECT_BUCKET=${AWS_S3_STOREOBJECT_BUCKET}/;
+            s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
+            s|^AWS_S3_STOREOBJECT_SECRET_KEY=.*|AWS_S3_STOREOBJECT_SECRET_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_SECRET_KEY")|;
+            s|^AWS_S3_STOREOBJECT_REGION=.*|AWS_S3_STOREOBJECT_REGION=$(escape_sed "$AWS_S3_STOREOBJECT_REGION")|;
+            s|^AWS_S3_STOREOBJECT_BUCKET=.*|AWS_S3_STOREOBJECT_BUCKET=$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
         }
         /^# Used for Bulk issuance/,/^$/ {
-            s/^AWS_ACCESS_KEY=.*/AWS_ACCESS_KEY=${AWS_ACCESS_KEY}/;
-            s/^AWS_SECRET_KEY=.*/AWS_SECRET_KEY=${AWS_SECRET_KEY}/;
-            s/^AWS_REGION=.*/AWS_REGION=${AWS_REGION}/;
-            s/^AWS_BUCKET=.*/AWS_BUCKET=${AWS_BUCKET}/;
+            s|^AWS_ACCESS_KEY=.*|AWS_ACCESS_KEY=$(escape_sed "$AWS_ACCESS_KEY")|;
+            s|^AWS_SECRET_KEY=.*|AWS_SECRET_KEY=$(escape_sed "$AWS_SECRET_KEY")|;
+            s|^AWS_REGION=.*|AWS_REGION=$(escape_sed "$AWS_REGION")|;
+            s|^AWS_BUCKET=.*|AWS_BUCKET=$(escape_sed "$AWS_BUCKET")|;
         }
         /^# Used for Adding org-logo/,/^$/ {
-            s/^AWS_PUBLIC_ACCESS_KEY=.*/AWS_PUBLIC_ACCESS_KEY=${AWS_PUBLIC_ACCESS_KEY}/;
-            s/^AWS_PUBLIC_SECRET_KEY=.*/AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY}/;
-            s/^AWS_PUBLIC_REGION=.*/AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION}/;
-            s/^AWS_ORG_LOGO_BUCKET_NAME=.*/AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME}/;
+            s|^AWS_PUBLIC_ACCESS_KEY=.*|AWS_PUBLIC_ACCESS_KEY=$(escape_sed "$AWS_PUBLIC_ACCESS_KEY")|;
+            s|^AWS_PUBLIC_SECRET_KEY=.*|AWS_PUBLIC_SECRET_KEY=$(escape_sed "$AWS_PUBLIC_SECRET_KEY")|;
+            s|^AWS_PUBLIC_REGION=.*|AWS_PUBLIC_REGION=$(escape_sed "$AWS_PUBLIC_REGION")|;
+            s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
         }
-        s#^SHORTENED_URL_DOMAIN=.*#SHORTENED_URL_DOMAIN=https://s3.${AWS_S3_STOREOBJECT_REGION}.amazonaws.com/${AWS_S3_STOREOBJECT_BUCKET}#;
+        s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
     }
-    
-    sed_inplace "s|your-ip|$MACHINE_IP|g" agent.env
-
+    sed_inplace "s|your-ip|$(escape_sed "$MACHINE_IP")|g" agent.env
     print_message "green" "Environment file configured successfully."
 }
 
