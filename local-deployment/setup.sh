@@ -805,7 +805,7 @@ studio() {
 
     print_message "blue" "Starting Studio container..."
     docker run -d \
-        -p $studio_port:3000 \
+        -p $studio_port:8085 \
         --env-file .env \
         --name UI-App \
         credbl-studio || {
