@@ -784,6 +784,7 @@ studio() {
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}|;
         s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
         s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $(escape_sed "$http_url") $(escape_sed "$ws_url")\"|;
     " .env
