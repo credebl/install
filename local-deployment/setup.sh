@@ -34,6 +34,7 @@ print_message() {
         "red") symbol="❌" ;;
         "blue") symbol="🔍" ;;
         "purple") symbol="🛡️" ;;
+        "blue") symbol="🔵" ;;
         *) symbol="📌" ;;
     esac
     
@@ -106,6 +107,16 @@ prepare_environment() {
         done
     }
 
+    # Set default empty values for optional variables
+    local AWS_ACCESS_KEY=${AWS_ACCESS_KEY:-}
+    local AWS_SECRET_KEY=${AWS_SECRET_KEY:-}
+    local AWS_REGION=${AWS_REGION:-}
+    local AWS_BUCKET=${AWS_BUCKET:-}
+    local AWS_PUBLIC_ACCESS_KEY=${AWS_PUBLIC_ACCESS_KEY:-}
+    local AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY:-}
+    local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
+    local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
+
     # Collect required variables
     MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
 
@@ -174,6 +185,7 @@ declare -A PORTS=(
     ["redis"]=6379
     ["keycloak"]=8080
     ["schema-file-server"]=4000
+    ["studio"]=3000
 )
 
 # Function to check if port is available
@@ -233,7 +245,7 @@ configure_ports() {
         available_port=$(find_available_port "$base_port")
         
         USED_PORTS["$service"]="$available_port"
-        print_message "green" "Assigned port $available_port for $service"
+        echo -e "Assigned port $available_port for $service"
     done
 
     # Update .env file with selected ports
@@ -737,6 +749,74 @@ update_env() {
     print_message "green" "Schema File Server configuration updated successfully:"
 }
 
+studio() {
+    print_message "blue" "\n Setting up CREDEBL studio..."
+
+    local studio_port=${USED_PORTS["studio"]:-3000}
+    local http_url="http://$MACHINE_IP:$studio_port"
+    local ws_url="ws://$MACHINE_IP:$studio_port"
+
+    if [ -d "studio" ]; then
+        print_message "yellow" "Studio directory exists, pulling latest changes..."
+        cd studio && git pull origin main && cd ..
+    else
+        git clone -b main https://github.com/credebl/studio.git || {
+            print_message "red" "Failed to clone Studio repository"
+            exit 1
+        }
+    fi
+
+    # Configure environment
+    cd studio || {
+        print_message "red" "Failed to enter studio directory"
+        exit 1
+    }
+
+    if [ ! -f .env ]; then
+        print_message "yellow" "Copying .env.demo to .env..."
+        cp .env.demo .env || {
+            print_message "red" "Failed to copy .env.demo to .env"
+            exit 1
+        }
+    else
+        print_message "green" ".env already exists."
+    fi
+
+    sed_inplace "
+        s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
+        s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $(escape_sed "$http_url") $(escape_sed "$ws_url")\"|;
+    " .env
+
+     # Build and run the container
+    print_message "blue" "Building Studio Docker image..."
+    docker build -t credbl-studio . || {
+        print_message "red" "Failed to build Studio image"
+        exit 1
+    }
+
+    # Check if container already exists
+    if docker ps -a --format '{{.Names}}' | grep -q "^UI-App$"; then
+        print_message "yellow" "Removing existing UI-App container..."
+        docker rm -f UI-App || {
+            print_message "yellow" "Failed to remove existing container, continuing..."
+        }
+    fi
+
+    print_message "blue" "Starting Studio container..."
+    docker run -d \
+        -p $studio_port:3000 \
+        --env-file .env \
+        --name UI-App \
+        credbl-studio || {
+            print_message "red" "Failed to start Studio container"
+            exit 1
+        }
+    cd ..
+
+    print_message "green" "CREDEBL Studio started successfully on port $studio_port"
+}
+
 # Main execution flow
 main() {
     prepare_environment
@@ -751,10 +831,11 @@ main() {
     update_master_table
     start_services
     update_env
+    studio
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
-    print_message "green" "\n Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}/api"
-    print_message "green" "\n Access the CREDEBL studio by navigating to http://${MACHINE_IP}:3000"
+    print_message "green" "Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}/api \n"
+    print_message "green" "Access the CREDEBL studio by navigating to http://${MACHINE_IP}:$studio_port \n"
     echo "Check the logs for details: ${LOG_FILE}"
 }
 
