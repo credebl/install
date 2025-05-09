@@ -503,21 +503,48 @@ install_terraform_macos() {
 
 # Step 4: Deploy Keycloak
 deploy_keycloak() {
+    local reuse_existing=false
     print_message "purple" "Setting up Keycloak..."
-    
-    if ! docker ps | grep -q "keycloak"; then
-        print_message "purple" "Starting Keycloak container..."
+
+    if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "keycloak.*${KEYCLOAK_VERSION}"; then
+        keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
+        print_message "yellow" "Found existing Keycloak container ($keycloak_container) with matching version"
+        reuse_existing=true
+    fi
+
+    if [ "$reuse_existing" = false ]; then
+        # Determine container name
+        local container_name="keycloak"
+        local port=${USED_PORTS["keycloak"]:-8080}  # Use assigned port or default
         
-        docker run -d -p ${USED_PORTS["keycloak"]}:8080 --name keycloak \
-            -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
-            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev || {
+        # Check if name is already in use
+        if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
+            container_name="keycloak-${port}"
+            print_message "yellow" "Keycloak name in use, using alternative: $container_name"
+        fi
+
+        print_message "blue" "Starting new Keycloak container on port $port..."
+        docker run -d \
+            -p ${port}:8080 \
+            --name "$container_name" \
+            -e KEYCLOAK_ADMIN=admin \
+            -e KEYCLOAK_ADMIN_PASSWORD=admin \
+            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev && \
+            print_message "green" "Keycloak started successfully" || {
                 print_message "red" "Failed to start Keycloak container"
                 exit 1
             }
-            
-        print_message "green" "Keycloak started successfully."
     else
-        print_message "green" "Keycloak is already running."
+        # Ensure existing container is running
+        if [ "$(docker inspect -f '{{.State.Running}}' "$keycloak_container")" = "false" ]; then
+            docker start "$keycloak_container" && \
+                print_message "green" "Restarted existing Keycloak container" || {
+                    print_message "red" "Failed to restart Keycloak container"
+                    exit 1
+                }
+        else
+            print_message "green" "Using existing Keycloak container ($keycloak_container)"
+        fi
     fi
 }
 
@@ -726,6 +753,7 @@ main() {
     update_env
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
+    print_message "green" "\n Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}"
     echo "Check the logs for details: ${LOG_FILE}"
 }
 
