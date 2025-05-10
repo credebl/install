@@ -697,25 +697,17 @@ update_master_table() {
 }
 
 # Step 9: Start Docker services
-start_services() {
-    print_message "blue" "Starting services with docker-compose..."
-    
-    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
-        print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
-        exit 1
-    fi
-    
-    docker compose up -d || {
-        print_message "red" "Failed to start services with docker-compose"
+setup_schema_service(){
+
+    print_message "blue" "Setting up Schema Service..."
+
+     # Start schema service first
+    docker-compose up -d schema-file-server || {
+        print_message "red" "Failed to start schema service"
         exit 1
     }
-    sleep 30
-    print_message "yellow" "Waiting 30 seconds for Services to be fully ready..."
-    print_message "green" "Services started successfully."
-}
 
-# Step 10: Update env file
-update_env() {
+    sleep 20
     print_message "blue" "Updating environment with Schema File Server details..."
     
     # Wait for schema-file-server to start and get auth token
@@ -745,16 +737,34 @@ update_env() {
 
     echo "Enter password to grant execute permission for saving schemas..."
     sudo chmod +x "$PWD/apps/schemas"
+    print_message "green" "Schema File Server configuration updated successfully"
+}
 
-    print_message "green" "Schema File Server configuration updated successfully:"
+start_services() {
+    print_message "blue" "Starting services with docker-compose..."
+    
+    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
+        print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
+        exit 1
+    fi
+    
+    local services=$(docker-compose config --services | grep -v '^schema-file-server$')
+
+    docker compose up -d $services || {
+        print_message "red" "Failed to start services with docker-compose"
+        exit 1
+    }
+    sleep 30
+    print_message "yellow" "Waiting 30 seconds for Services to be fully ready..."
+    print_message "green" "Services started successfully."
 }
 
 studio() {
     print_message "blue" "\n Setting up CREDEBL studio..."
 
     local studio_port=${USED_PORTS["studio"]:-3000}
-    local http_url="http://$MACHINE_IP:$studio_port"
-    local ws_url="ws://$MACHINE_IP:$studio_port"
+    local http_url="http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}"
+    local ws_url="ws://$MACHINE_IP:${USED_PORTS["api-gateway"]}"
 
     if [ -d "studio" ]; then
         print_message "yellow" "Studio directory exists, pulling latest changes..."
@@ -784,9 +794,9 @@ studio() {
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
-        s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}|;
+        s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=$http_url|;
         s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
-        s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $(escape_sed "$http_url") $(escape_sed "$ws_url")\"|;
+        s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $http_url $ws_url\"|;
     " .env
 
      # Build and run the container
@@ -830,8 +840,8 @@ main() {
     generate_jwt_secret
     pull_credo_controller
     update_master_table
+    setup_schema_service
     start_services
-    update_env
     studio
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
