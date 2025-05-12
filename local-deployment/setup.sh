@@ -206,6 +206,7 @@ prepare_environment_variable() {
 
     # Collect required variables
     MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
+    echo -e "\n Host IP fetched ${MACHINE_IP}"
 
     # Set default empty values for optional variables
     local AWS_ACCESS_KEY=${AWS_ACCESS_KEY:-}
@@ -273,6 +274,39 @@ prepare_environment_variable() {
         print_message "red" "Failed to update .env file"
         exit 1
     }
+    # use_external_postgres=$(prompt_yes_no "Do you want to use an existing PostgreSQL server?")
+    # if [ "$use_external_postgres" == "yes" ]; then
+    USE_EXISTING_POSTGRES=false
+    if prompt_yes_no "Do you want to use an existing PostgreSQL server?"; then    # working
+        print_message "blue" "Configuring external PostgreSQL connection"
+        USE_EXISTING_POSTGRES=true
+        handle_existing_value "POSTGRES_HOST" "Enter PostgreSQL host"
+        
+        while true; do
+            handle_existing_value "POSTGRES_PORT" "Enter PostgreSQL port"
+            [[ $POSTGRES_PORT =~ ^[0-9]+$ ]] && break
+            print_message "red" "Port must be a number"
+        done
+        
+        handle_existing_value "POSTGRES_USER" "Enter PostgreSQL username"
+        handle_existing_value "POSTGRES_PASSWORD" "Enter PostgreSQL password"
+        handle_existing_value "POSTGRES_DB" "Enter PostgreSQL database name"
+
+        sed_inplace "
+            s|^POSTGRES_HOST=.*|POSTGRES_HOST=$(escape_sed "$POSTGRES_HOST")|;
+            s|^POSTGRES_PORT=.*|POSTGRES_PORT=$(escape_sed "$POSTGRES_PORT")|;
+            s|^POSTGRES_USER=.*|POSTGRES_USER=$(escape_sed "$POSTGRES_USER")|;
+            s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(escape_sed "$POSTGRES_PASSWORD")|;
+            s|^POSTGRES_DB=.*|POSTGRES_DB=$(escape_sed "$POSTGRES_DB")|;
+            s|^WALLET_STORAGE_HOST=.*|WALLET_STORAGE_HOST=$(escape_sed "$POSTGRES_HOST")|;
+            s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=$(escape_sed "$POSTGRES_PORT")|;
+            s|^WALLET_STORAGE_USER=.*|WALLET_STORAGE_USER=$(escape_sed "$POSTGRES_USER")|;
+            s|^WALLET_STORAGE_PASSWORD=.*|WALLET_STORAGE_PASSWORD=$(escape_sed "$POSTGRES_PASSWORD")|;
+            s|^DATABASE_URL=.*|DATABASE_URL=postgresql://$(escape_sed "$POSTGRES_USER"):$(escape_sed "$POSTGRES_PASSWORD")@$(escape_sed "$POSTGRES_HOST"):$(escape_sed "$POSTGRES_PORT")/$(escape_sed $POSTGRES_DB)|;
+            s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://$(escape_sed "$POSTGRES_USER"):$(escape_sed "$POSTGRES_PASSWORD")@$(escape_sed "$POSTGRES_HOST"):$(escape_sed "$POSTGRES_PORT")/$(escape_sed $POSTGRES_DB)|;
+        " .env
+        print_message "green" "Existing PostgreSQL configuration saved"
+    fi
 
     CURRENT_CORS_LIST=$(grep '^ENABLE_CORS_IP_LIST=' .env | cut -d'=' -f2- | tr -d '"')
     if [[ "$CURRENT_CORS_LIST" == *"$STUDIO_URL"* ]]; then
@@ -764,15 +798,19 @@ setup_schema_service(){
 
 start_services() {
     print_message "blue" "Starting services with docker-compose..."
-    
+    local services=$(docker-compose config --services | grep -v '^schema-file-server$')
+
     if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
         print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
         exit 1
     fi
     
-    local services=$(docker-compose config --services | grep -v '^schema-file-server$')
-
-    docker compose up -d $services || {
+    if $USE_EXISTING_POSTGRES; then
+        print_message "yellow" "Skipping PostgreSQL container (using existing postgres)"
+        docker compose up -d $services --scale postgres=0
+    else
+        docker compose up -d $services
+    fi || {
         print_message "red" "Failed to start services with docker-compose"
         exit 1
     }

@@ -21,7 +21,7 @@ services:
     volumes: 
       - cache:/data
   postgres:
-    container_name: postgres-db
+    container_name: postgres
     image: postgres:latest
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
