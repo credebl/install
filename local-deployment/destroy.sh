@@ -74,7 +74,7 @@ cleanup_containers() {
     print_message "blue" "Cleaning up application containers..."
     
     # List of containers created by setup.sh
-    local containers=("keycloak" "UI-App")
+    local containers=("credebl-keycloak" "UI-App")
     
     for container in "${containers[@]}"; do
         if docker ps -a --format '{{.Names}}' | grep -q "^${container}\$"; then

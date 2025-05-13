@@ -572,28 +572,40 @@ install_terraform_macos() {
 # Step 4: Deploy Keycloak
 deploy_keycloak() {
     local reuse_existing=false
+    local desired_port=${USED_PORTS["keycloak"]}
     print_message "purple" "Setting up Keycloak..."
 
-    if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "keycloak.*${KEYCLOAK_VERSION}"; then
-        keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
+    if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
+        keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "credebl-keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
         print_message "yellow" "Found existing Keycloak container ($keycloak_container) with matching version"
         reuse_existing=true
+        
+        current_port=$(docker port "$keycloak_container" 8080/tcp | cut -d: -f1)
+        # Check if port needs to be updated
+        if [ "$current_port" != "$desired_port" ]; then
+            print_message "yellow" "Port mismatch (current: $current_port, desired: $desired_port). Recreating container..."
+            # Stop and remove existing container
+            docker rm -f "$keycloak_container" || {
+                print_message "red" "Failed to remove existing container"
+                exit 1
+            }
+            reuse_existing=false
+        fi
     fi
 
     if [ "$reuse_existing" = false ]; then
         # Determine container name
-        local container_name="keycloak"
-        local port=${USED_PORTS["keycloak"]:-8080}  # Use assigned port or default
-        
+        local container_name="credebl-keycloak"
+
         # Check if name is already in use
         if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
-            container_name="keycloak-${port}"
+            container_name="credebl-keycloak-${desired_port}"
             print_message "yellow" "Keycloak name in use, using alternative: $container_name"
         fi
 
-        print_message "blue" "Starting new Keycloak container on port $port..."
+        print_message "blue" "Starting new Keycloak container on port $desired_port..."
         docker run -d \
-            -p ${port}:8080 \
+            -p ${desired_port}:8080 \
             --name "$container_name" \
             -e KEYCLOAK_ADMIN=admin \
             -e KEYCLOAK_ADMIN_PASSWORD=admin \
@@ -619,6 +631,7 @@ deploy_keycloak() {
 # Step 5: Setup Keycloak using Terraform
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
+    NEW_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -629,6 +642,12 @@ setup_keycloak_terraform() {
         print_message "red" "Failed to change directory to ${TERRAFORM_DIR}"
         exit 1
     }
+
+    if sed_inplace -E "s|^(root_url\s*=\s*\").*\"|\1${NEW_URL}\"|" terraform.tfvars; then
+        print_message "green" "Keycloak root URL set to ${NEW_URL}"
+    else
+        print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
+    fi
     
     terraform init || {
         print_message "red" "Terraform init failed"
@@ -666,9 +685,19 @@ update_keycloak_secret() {
         exit 1
     }
 
+    if [ "${USED_PORTS["keycloak"]}" != "8080" ]; then
+        sed_inplace "
+        s|^KEYCLOAK_DOMAIN=.*|KEYCLOAK_DOMAIN=$(escape_sed "$NEW_URL")|;
+        s|^KEYCLOAK_ADMIN_URL=.*|KEYCLOAK_ADMIN_URL=$(escape_sed "$NEW_URL")|;
+        " .env || {
+            print_message "red" "Failed to update Keycloak root url in .env"
+            return 1
+        }
+    fi
+
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
         sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
-            print_message "red" "Failed to update existing KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
+            print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
