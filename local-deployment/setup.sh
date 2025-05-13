@@ -791,7 +791,7 @@ setup_schema_service(){
     print_message "blue" "Setting up Schema Service..."
 
      # Start schema service first
-    docker-compose up -d schema-file-server || {
+    docker compose up -d schema-file-server || {
         print_message "red" "Failed to start schema service"
         exit 1
     }
@@ -831,7 +831,7 @@ setup_schema_service(){
 
 start_services() {
     print_message "blue" "Starting services with docker-compose..."
-    local services=$(docker-compose config --services | grep -v '^schema-file-server$')
+    local services=$(docker compose config --services | grep -v '^schema-file-server$')
 
     if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
         print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
