@@ -65,6 +65,17 @@ cleanup_files() {
             print_message "yellow" "Failed to remove secret.env"
     fi
     
+    if [ -f "studio/.env" ]; then
+        rm -f studio/.env && \
+            print_message "green" "Removed studio/.env" || \
+            print_message "yellow" "Failed to remove studio/.env"
+    fi
+
+    if [ -d "apps" ]; then
+        sudo rm apps -rf && \
+            print_message "green" "Removed apps folder" || \
+            print_message "yellow" "Failed to remove apps folder"
+    fi
     # Keep .env file but you can add removal here if needed
     print_message "green" "Preserved .env file"
 }

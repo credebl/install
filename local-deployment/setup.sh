@@ -149,17 +149,23 @@ configure_ports() {
 
 update_ports_config() {
     sed_inplace "
-        s|5432|${USED_PORTS["postgres"]}|g;
-        s|5000|${USED_PORTS["api-gateway"]}|g;
-        s|6379|${USED_PORTS["redis"]}|g;
-        s|8080|${USED_PORTS["keycloak"]}|g;
-        s|4000|${USED_PORTS["schema-file-server"]}|g;
+        s|^PUBLIC_LOCALHOST_URL=.*|PUBLIC_LOCALHOST_URL=http://localhost:${USED_PORTS["api-gateway"]}|;
+        s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORTS["api-gateway"]}|;
+        s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORTS["api-gateway"]}|;
+        s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORTS["api-gateway"]}|;
+        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORTS["api-gateway"]}|;
+        s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORTS["redis"]}|;
+        s|^APP_PORT=.*|APP_PORT=${USED_PORTS["schema-file-server"]}|;
+        s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORTS["schema-file-server"]}/schemas/|;
+        s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORTS["postgres"]}|;
+        s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
+        s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
     " .env
     sed_inplace "
-        s|5432:5432|${USED_PORTS["postgres"]}:5432|;
-        s|5000:5000|${USED_PORTS["api-gateway"]}:5000|;
-        s|6379:6379|${USED_PORTS["redis"]}:6379|;
-        s|4000:4000|${USED_PORTS["schema-file-server"]}:4000|;
+        s|[0-9]*:5432|${USED_PORTS["postgres"]}:5432|;
+        s|[0-9]*:5000|${USED_PORTS["api-gateway"]}:5000|;
+        s|[0-9]*:6379|${USED_PORTS["redis"]}:6379|;
+        s|[0-9]*:4000|${USED_PORTS["schema-file-server"]}:4000|;
     " docker-compose.yml
 
     print_message "green" "Updated .env file and docker-compose available ports"
@@ -685,15 +691,13 @@ update_keycloak_secret() {
         exit 1
     }
 
-    if [ "${USED_PORTS["keycloak"]}" != "8080" ]; then
-        sed_inplace "
-        s|^KEYCLOAK_DOMAIN=.*|KEYCLOAK_DOMAIN=$(escape_sed "$NEW_URL")|;
-        s|^KEYCLOAK_ADMIN_URL=.*|KEYCLOAK_ADMIN_URL=$(escape_sed "$NEW_URL")|;
-        " .env || {
-            print_message "red" "Failed to update Keycloak root url in .env"
-            return 1
-        }
-    fi
+    sed_inplace "
+    s|^KEYCLOAK_DOMAIN=.*|KEYCLOAK_DOMAIN=$(escape_sed "$NEW_URL")/|;
+    s|^KEYCLOAK_ADMIN_URL=.*|KEYCLOAK_ADMIN_URL=$(escape_sed "$NEW_URL")|;
+    " .env || {
+        print_message "red" "Failed to update Keycloak root url in .env"
+        return 1
+    }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
         sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
@@ -821,7 +825,7 @@ setup_schema_service(){
     }
 
     echo "Enter password to grant execute permission for saving schemas..."
-    sudo chmod +x "$PWD/apps/schemas"
+    sudo chmod 777 $PWD/apps/schemas
     print_message "green" "Schema File Server configuration updated successfully"
 }
 
