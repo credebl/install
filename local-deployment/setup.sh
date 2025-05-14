@@ -34,6 +34,7 @@ print_message() {
         "red") symbol="❌" ;;
         "blue") symbol="🔍" ;;
         "purple") symbol="🛡️" ;;
+        "blue") symbol="🔵" ;;
         *) symbol="📌" ;;
     esac
     
@@ -59,121 +60,27 @@ prompt_yes_no() {
   done
 }
 
-# Step 1: Prepare environment files
-prepare_environment() {
-    print_message "yellow" "Preparing environment files..."
-    
+
+# Step 1: Prepare env file and Check  ports availability
+prepare_env_file(){
     if [ ! -f .env ]; then
-        print_message "yellow" "Copying .env.demo to .env..."
-        cp .env.demo .env || {
-            print_message "red" "Failed to copy .env.demo to .env"
-            exit 1
-        }
+    print_message "yellow" "Copying .env.demo to .env..."
+    cp .env.demo .env || {
+        print_message "red" "Failed to copy .env.demo to .env"
+        exit 1
+    }
     else
         print_message "green" ".env already exists. Skipping copy and checking existing values..."
     fi
-
-    escape_sed() {
-        echo "$1" | sed -e 's/[\/&]/\\&/g'
-    }
-
-    handle_existing_value() {
-        local var_name=$1
-        local prompt=$2
-        local required=${3:-true}  # Default to true if not specified
-        local current_value=$(grep "^$var_name=" .env | cut -d'=' -f2-)
-        
-        # Check for existing value
-        if [ -n "$current_value" ]; then
-            if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
-                eval "$var_name=\"$current_value\""
-                print_message "green" "Using existing $var_name"
-                return
-            else
-                print_message "yellow" "Will prompt for new $var_name value"
-                unset current_value
-            fi
-        fi
-        
-        # Input loop
-        while true; do
-            read -p "$prompt: " $var_name
-            if [ "$required" = "true" ] && [ -z "${!var_name}" ]; then
-                print_message "red" "Value cannot be empty"
-            else
-                break
-            fi
-        done
-    }
-
-    # Collect required variables
-    MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
-
-    handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
-    handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
-
-    # Required S3 variables
-    echo -e "\n# Provide S3 credentials, required for storing connection URLs"
-    handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
-    handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
-    handle_existing_value "AWS_S3_STOREOBJECT_REGION" "Enter AWS S3 Region"
-    handle_existing_value "AWS_S3_STOREOBJECT_BUCKET" "Enter AWS S3 Bucket"
-
-    # bulk issuance
-    if prompt_yes_no "Do you want to use bulk issuance?"; then
-        echo -e "\n# Provide S3 credentials for bulk issuance"
-        handle_existing_value "AWS_ACCESS_KEY" "Enter AWS Access Key (bulk)"
-        handle_existing_value "AWS_SECRET_KEY" "Enter AWS Secret Key (bulk)"
-        handle_existing_value "AWS_REGION" "Enter AWS Region (bulk)"
-        handle_existing_value "AWS_BUCKET" "Enter AWS Bucket (bulk)"
-    fi
-
-    # Optional org logos
-    if prompt_yes_no "Do you want to upload org logos?"; then
-        echo -e "\n# Provide S3 credentials for org logos"
-        handle_existing_value "AWS_PUBLIC_ACCESS_KEY" "Enter AWS Public Access Key"
-        handle_existing_value "AWS_PUBLIC_SECRET_KEY" "Enter AWS Public Secret Key"
-        handle_existing_value "AWS_PUBLIC_REGION" "Enter AWS Public Region"
-        handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
-    fi
-    
-    sed_inplace "
-        s|your-ip|$(escape_sed "$MACHINE_IP")|g;
-        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
-        /^# Used for storing connection URL/,/^$/ {
-            s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
-            s|^AWS_S3_STOREOBJECT_SECRET_KEY=.*|AWS_S3_STOREOBJECT_SECRET_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_SECRET_KEY")|;
-            s|^AWS_S3_STOREOBJECT_REGION=.*|AWS_S3_STOREOBJECT_REGION=$(escape_sed "$AWS_S3_STOREOBJECT_REGION")|;
-            s|^AWS_S3_STOREOBJECT_BUCKET=.*|AWS_S3_STOREOBJECT_BUCKET=$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
-        }
-        /^# Used for Bulk issuance/,/^$/ {
-            s|^AWS_ACCESS_KEY=.*|AWS_ACCESS_KEY=$(escape_sed "$AWS_ACCESS_KEY")|;
-            s|^AWS_SECRET_KEY=.*|AWS_SECRET_KEY=$(escape_sed "$AWS_SECRET_KEY")|;
-            s|^AWS_REGION=.*|AWS_REGION=$(escape_sed "$AWS_REGION")|;
-            s|^AWS_BUCKET=.*|AWS_BUCKET=$(escape_sed "$AWS_BUCKET")|;
-        }
-        /^# Used for Adding org-logo/,/^$/ {
-            s|^AWS_PUBLIC_ACCESS_KEY=.*|AWS_PUBLIC_ACCESS_KEY=$(escape_sed "$AWS_PUBLIC_ACCESS_KEY")|;
-            s|^AWS_PUBLIC_SECRET_KEY=.*|AWS_PUBLIC_SECRET_KEY=$(escape_sed "$AWS_PUBLIC_SECRET_KEY")|;
-            s|^AWS_PUBLIC_REGION=.*|AWS_PUBLIC_REGION=$(escape_sed "$AWS_PUBLIC_REGION")|;
-            s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
-        }
-        s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
-    " .env || {
-        print_message "red" "Failed to update .env file"
-        exit 1
-    }
-    sed_inplace "s|your-ip|$(escape_sed "$MACHINE_IP")|g" agent.env
-    print_message "green" "Environment file configured successfully."
 }
 
-# Step 2: Check  ports availability, docker and node, if not available installs node
 declare -A PORTS=(
     ["postgres"]=5432
     ["api-gateway"]=5000
     ["redis"]=6379
     ["keycloak"]=8080
     ["schema-file-server"]=4000
+    ["studio"]=3000
 )
 
 # Function to check if port is available
@@ -233,7 +140,7 @@ configure_ports() {
         available_port=$(find_available_port "$base_port")
         
         USED_PORTS["$service"]="$available_port"
-        print_message "green" "Assigned port $available_port for $service"
+        echo -e "Assigned port $available_port for $service"
     done
 
     # Update .env file with selected ports
@@ -242,22 +149,185 @@ configure_ports() {
 
 update_ports_config() {
     sed_inplace "
-        s|5432|${USED_PORTS["postgres"]}|g;
-        s|5000|${USED_PORTS["api-gateway"]}|g;
-        s|6379|${USED_PORTS["redis"]}|g;
-        s|8080|${USED_PORTS["keycloak"]}|g;
-        s|4000|${USED_PORTS["schema-file-server"]}|g;
+        s|^PUBLIC_LOCALHOST_URL=.*|PUBLIC_LOCALHOST_URL=http://localhost:${USED_PORTS["api-gateway"]}|;
+        s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORTS["api-gateway"]}|;
+        s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORTS["api-gateway"]}|;
+        s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORTS["api-gateway"]}|;
+        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORTS["api-gateway"]}|;
+        s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORTS["redis"]}|;
+        s|^APP_PORT=.*|APP_PORT=${USED_PORTS["schema-file-server"]}|;
+        s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORTS["schema-file-server"]}/schemas/|;
+        s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORTS["postgres"]}|;
+        s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
+        s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
     " .env
     sed_inplace "
-        s|5432:5432|${USED_PORTS["postgres"]}:5432|;
-        s|5000:5000|${USED_PORTS["api-gateway"]}:5000|;
-        s|6379:6379|${USED_PORTS["redis"]}:6379|;
-        s|4000:4000|${USED_PORTS["schema-file-server"]}:4000|;
+        s|[0-9]*:5432|${USED_PORTS["postgres"]}:5432|;
+        s|[0-9]*:5000|${USED_PORTS["api-gateway"]}:5000|;
+        s|[0-9]*:6379|${USED_PORTS["redis"]}:6379|;
+        s|[0-9]*:4000|${USED_PORTS["schema-file-server"]}:4000|;
     " docker-compose.yml
 
     print_message "green" "Updated .env file and docker-compose available ports"
 }
 
+# Step 2: Prepare environment files
+
+prepare_environment_variable() {
+    print_message "yellow" "Preparing environment files..."
+
+    escape_sed() {
+        echo "$1" | sed -e 's/[\/&]/\\&/g'
+    }
+
+    handle_existing_value() {
+        local var_name=$1
+        local prompt=$2
+        local required=${3:-true}  # Default to true if not specified
+        local current_value=$(grep "^$var_name=" .env | cut -d'=' -f2-)
+        
+        # Check for existing value
+        if [ -n "$current_value" ]; then
+            if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
+                eval "$var_name=\"$current_value\""
+                print_message "green" "Using existing $var_name"
+                return
+            else
+                print_message "yellow" "Will prompt for new $var_name value"
+                unset current_value
+            fi
+        fi
+        
+        # Input loop
+        while true; do
+            read -p "$prompt: " $var_name
+            if [ "$required" = "true" ] && [ -z "${!var_name}" ]; then
+                print_message "red" "Value cannot be empty"
+            else
+                break
+            fi
+        done
+    }
+
+
+    # Collect required variables
+    MACHINE_IP=$(ipconfig getifaddr en0 2>/dev/null || ip route get 1 | awk '{print $7; exit}')
+    echo -e "\n Host IP fetched ${MACHINE_IP}"
+
+    # Set default empty values for optional variables
+    local AWS_ACCESS_KEY=${AWS_ACCESS_KEY:-}
+    local AWS_SECRET_KEY=${AWS_SECRET_KEY:-}
+    local AWS_REGION=${AWS_REGION:-}
+    local AWS_BUCKET=${AWS_BUCKET:-}
+    local AWS_PUBLIC_ACCESS_KEY=${AWS_PUBLIC_ACCESS_KEY:-}
+    local AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY:-}
+    local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
+    local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
+    local STUDIO_URL="http://${MACHINE_IP}:${USED_PORTS[studio]}"
+
+
+    handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
+    handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
+
+    # Required S3 variables
+    echo -e "\n# Provide S3 credentials, required for storing connection URLs"
+    handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
+    handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
+    handle_existing_value "AWS_S3_STOREOBJECT_REGION" "Enter AWS S3 Region"
+    handle_existing_value "AWS_S3_STOREOBJECT_BUCKET" "Enter AWS S3 Bucket"
+
+    # bulk issuance
+    if prompt_yes_no "Do you want to use bulk issuance?"; then
+        echo -e "\n# Provide S3 credentials for bulk issuance"
+        handle_existing_value "AWS_ACCESS_KEY" "Enter AWS Access Key (bulk)"
+        handle_existing_value "AWS_SECRET_KEY" "Enter AWS Secret Key (bulk)"
+        handle_existing_value "AWS_REGION" "Enter AWS Region (bulk)"
+        handle_existing_value "AWS_BUCKET" "Enter AWS Bucket (bulk)"
+    fi
+
+    # Optional org logos
+    if prompt_yes_no "Do you want to upload org logos?"; then
+        echo -e "\n# Provide S3 credentials for org logos"
+        handle_existing_value "AWS_PUBLIC_ACCESS_KEY" "Enter AWS Public Access Key"
+        handle_existing_value "AWS_PUBLIC_SECRET_KEY" "Enter AWS Public Secret Key"
+        handle_existing_value "AWS_PUBLIC_REGION" "Enter AWS Public Region"
+        handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
+    fi
+
+    sed_inplace "
+        s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
+        /^# Used for storing connection URL/,/^$/ {
+            s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
+            s|^AWS_S3_STOREOBJECT_SECRET_KEY=.*|AWS_S3_STOREOBJECT_SECRET_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_SECRET_KEY")|;
+            s|^AWS_S3_STOREOBJECT_REGION=.*|AWS_S3_STOREOBJECT_REGION=$(escape_sed "$AWS_S3_STOREOBJECT_REGION")|;
+            s|^AWS_S3_STOREOBJECT_BUCKET=.*|AWS_S3_STOREOBJECT_BUCKET=$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
+        }
+        /^# Used for Bulk issuance/,/^$/ {
+            s|^AWS_ACCESS_KEY=.*|AWS_ACCESS_KEY=$(escape_sed "$AWS_ACCESS_KEY")|;
+            s|^AWS_SECRET_KEY=.*|AWS_SECRET_KEY=$(escape_sed "$AWS_SECRET_KEY")|;
+            s|^AWS_REGION=.*|AWS_REGION=$(escape_sed "$AWS_REGION")|;
+            s|^AWS_BUCKET=.*|AWS_BUCKET=$(escape_sed "$AWS_BUCKET")|;
+        }
+        /^# Used for Adding org-logo/,/^$/ {
+            s|^AWS_PUBLIC_ACCESS_KEY=.*|AWS_PUBLIC_ACCESS_KEY=$(escape_sed "$AWS_PUBLIC_ACCESS_KEY")|;
+            s|^AWS_PUBLIC_SECRET_KEY=.*|AWS_PUBLIC_SECRET_KEY=$(escape_sed "$AWS_PUBLIC_SECRET_KEY")|;
+            s|^AWS_PUBLIC_REGION=.*|AWS_PUBLIC_REGION=$(escape_sed "$AWS_PUBLIC_REGION")|;
+            s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
+        }
+        s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
+    " .env || {
+        print_message "red" "Failed to update .env file"
+        exit 1
+    }
+    # use_external_postgres=$(prompt_yes_no "Do you want to use an existing PostgreSQL server?")
+    # if [ "$use_external_postgres" == "yes" ]; then
+    USE_EXISTING_POSTGRES=false
+    if prompt_yes_no "Do you want to use an existing PostgreSQL server?"; then    # working
+        print_message "blue" "Configuring external PostgreSQL connection"
+        USE_EXISTING_POSTGRES=true
+        handle_existing_value "POSTGRES_HOST" "Enter PostgreSQL host"
+        
+        while true; do
+            handle_existing_value "POSTGRES_PORT" "Enter PostgreSQL port"
+            [[ $POSTGRES_PORT =~ ^[0-9]+$ ]] && break
+            print_message "red" "Port must be a number"
+        done
+        
+        handle_existing_value "POSTGRES_USER" "Enter PostgreSQL username"
+        handle_existing_value "POSTGRES_PASSWORD" "Enter PostgreSQL password"
+        handle_existing_value "POSTGRES_DB" "Enter PostgreSQL database name"
+
+        sed_inplace "
+            s|^POSTGRES_HOST=.*|POSTGRES_HOST=$(escape_sed "$POSTGRES_HOST")|;
+            s|^POSTGRES_PORT=.*|POSTGRES_PORT=$(escape_sed "$POSTGRES_PORT")|;
+            s|^POSTGRES_USER=.*|POSTGRES_USER=$(escape_sed "$POSTGRES_USER")|;
+            s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(escape_sed "$POSTGRES_PASSWORD")|;
+            s|^POSTGRES_DB=.*|POSTGRES_DB=$(escape_sed "$POSTGRES_DB")|;
+            s|^WALLET_STORAGE_HOST=.*|WALLET_STORAGE_HOST=$(escape_sed "$POSTGRES_HOST")|;
+            s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=$(escape_sed "$POSTGRES_PORT")|;
+            s|^WALLET_STORAGE_USER=.*|WALLET_STORAGE_USER=$(escape_sed "$POSTGRES_USER")|;
+            s|^WALLET_STORAGE_PASSWORD=.*|WALLET_STORAGE_PASSWORD=$(escape_sed "$POSTGRES_PASSWORD")|;
+            s|^DATABASE_URL=.*|DATABASE_URL=postgresql://$(escape_sed "$POSTGRES_USER"):$(escape_sed "$POSTGRES_PASSWORD")@$(escape_sed "$POSTGRES_HOST"):$(escape_sed "$POSTGRES_PORT")/$(escape_sed $POSTGRES_DB)|;
+            s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://$(escape_sed "$POSTGRES_USER"):$(escape_sed "$POSTGRES_PASSWORD")@$(escape_sed "$POSTGRES_HOST"):$(escape_sed "$POSTGRES_PORT")/$(escape_sed $POSTGRES_DB)|;
+        " .env
+        print_message "green" "Existing PostgreSQL configuration saved"
+    fi
+
+    CURRENT_CORS_LIST=$(grep '^ENABLE_CORS_IP_LIST=' .env | cut -d'=' -f2- | tr -d '"')
+    if [[ "$CURRENT_CORS_LIST" == *"$STUDIO_URL"* ]]; then
+        UPDATED_CORS_LIST="$CURRENT_CORS_LIST"
+    else
+        UPDATED_CORS_LIST="${CURRENT_CORS_LIST},$STUDIO_URL"
+    fi
+
+    ESCAPED_CORS_LIST=$(escape_sed "$UPDATED_CORS_LIST")
+    sed_inplace "s|^ENABLE_CORS_IP_LIST=.*|ENABLE_CORS_IP_LIST=$ESCAPED_CORS_LIST|" .env
+    sed_inplace "s|your-ip|$(escape_sed "$MACHINE_IP")|g" agent.env
+    print_message "green" "Environment file configured successfully."
+}
+
+# Check docker and node, if not available installs node
 install_nodejs() {
     # Check and install Node.js if needed
     if ! command_exists -v node &> /dev/null; then
@@ -371,6 +441,10 @@ install_docker_ubuntu() {
         }
         sudo systemctl enable docker || {
             print_message "red" "Failed to enable Docker service"
+            exit 1
+        }
+        sudo usermod -aG docker $USER && newgrp docker || {
+            print_message "red" "Failed to add $USER to docker group"
             exit 1
         }
     else
@@ -503,27 +577,67 @@ install_terraform_macos() {
 
 # Step 4: Deploy Keycloak
 deploy_keycloak() {
+    local reuse_existing=false
+    local desired_port=${USED_PORTS["keycloak"]}
     print_message "purple" "Setting up Keycloak..."
-    
-    if ! docker ps | grep -q "keycloak"; then
-        print_message "purple" "Starting Keycloak container..."
+
+    if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
+        keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "credebl-keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
+        print_message "yellow" "Found existing Keycloak container ($keycloak_container) with matching version"
+        reuse_existing=true
         
-        docker run -d -p ${USED_PORTS["keycloak"]}:8080 --name keycloak \
-            -e KEYCLOAK_ADMIN=admin -e KEYCLOAK_ADMIN_PASSWORD=admin \
-            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev || {
+        current_port=$(docker port "$keycloak_container" 8080/tcp | cut -d: -f1)
+        # Check if port needs to be updated
+        if [ "$current_port" != "$desired_port" ]; then
+            print_message "yellow" "Port mismatch (current: $current_port, desired: $desired_port). Recreating container..."
+            # Stop and remove existing container
+            docker rm -f "$keycloak_container" || {
+                print_message "red" "Failed to remove existing container"
+                exit 1
+            }
+            reuse_existing=false
+        fi
+    fi
+
+    if [ "$reuse_existing" = false ]; then
+        # Determine container name
+        local container_name="credebl-keycloak"
+
+        # Check if name is already in use
+        if docker ps -a --format '{{.Names}}' | grep -q "^${container_name}$"; then
+            container_name="credebl-keycloak-${desired_port}"
+            print_message "yellow" "Keycloak name in use, using alternative: $container_name"
+        fi
+
+        print_message "blue" "Starting new Keycloak container on port $desired_port..."
+        docker run -d \
+            -p ${desired_port}:8080 \
+            --name "$container_name" \
+            -e KEYCLOAK_ADMIN=admin \
+            -e KEYCLOAK_ADMIN_PASSWORD=admin \
+            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev && \
+            print_message "green" "Keycloak started successfully" || {
                 print_message "red" "Failed to start Keycloak container"
                 exit 1
             }
-            
-        print_message "green" "Keycloak started successfully."
     else
-        print_message "green" "Keycloak is already running."
+        # Ensure existing container is running
+        if [ "$(docker inspect -f '{{.State.Running}}' "$keycloak_container")" = "false" ]; then
+            docker start "$keycloak_container" && \
+                print_message "green" "Restarted existing Keycloak container" || {
+                    print_message "red" "Failed to restart Keycloak container"
+                    exit 1
+                }
+        else
+            print_message "green" "Using existing Keycloak container ($keycloak_container)"
+        fi
     fi
 }
 
 # Step 5: Setup Keycloak using Terraform
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
+    NEW_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -534,6 +648,12 @@ setup_keycloak_terraform() {
         print_message "red" "Failed to change directory to ${TERRAFORM_DIR}"
         exit 1
     }
+
+    if sed_inplace -E "s|^(root_url\s*=\s*\").*\"|\1${NEW_URL}\"|" terraform.tfvars; then
+        print_message "green" "Keycloak root URL set to ${NEW_URL}"
+    else
+        print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
+    fi
     
     terraform init || {
         print_message "red" "Terraform init failed"
@@ -571,9 +691,17 @@ update_keycloak_secret() {
         exit 1
     }
 
+    sed_inplace "
+    s|^KEYCLOAK_DOMAIN=.*|KEYCLOAK_DOMAIN=$(escape_sed "$NEW_URL")/|;
+    s|^KEYCLOAK_ADMIN_URL=.*|KEYCLOAK_ADMIN_URL=$(escape_sed "$NEW_URL")|;
+    " .env || {
+        print_message "red" "Failed to update Keycloak root url in .env"
+        return 1
+    }
+
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
         sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
-            print_message "red" "Failed to update existing KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
+            print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
@@ -658,25 +786,17 @@ update_master_table() {
 }
 
 # Step 9: Start Docker services
-start_services() {
-    print_message "blue" "Starting services with docker-compose..."
-    
-    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
-        print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
-        exit 1
-    fi
-    
-    docker compose up -d || {
-        print_message "red" "Failed to start services with docker-compose"
+setup_schema_service(){
+
+    print_message "blue" "Setting up Schema Service..."
+
+     # Start schema service first
+    docker compose up -d schema-file-server || {
+        print_message "red" "Failed to start schema service"
         exit 1
     }
-    sleep 30
-    print_message "yellow" "Waiting 30 seconds for Services to be fully ready..."
-    print_message "green" "Services started successfully."
-}
 
-# Step 10: Update env file
-update_env() {
+    sleep 20
     print_message "blue" "Updating environment with Schema File Server details..."
     
     # Wait for schema-file-server to start and get auth token
@@ -705,15 +825,107 @@ update_env() {
     }
 
     echo "Enter password to grant execute permission for saving schemas..."
-    sudo chmod +x "$PWD/apps/schemas"
+    sudo chmod 777 $PWD/apps/schemas
+    print_message "green" "Schema File Server configuration updated successfully"
+}
 
-    print_message "green" "Schema File Server configuration updated successfully:"
+start_services() {
+    print_message "blue" "Starting services with docker-compose..."
+    local services=$(docker compose config --services | grep -v '^schema-file-server$')
+
+    if [ ! -f "${DOCKER_COMPOSE_FILE}" ]; then
+        print_message "red" "Docker compose file not found: ${DOCKER_COMPOSE_FILE}"
+        exit 1
+    fi
+    
+    if $USE_EXISTING_POSTGRES; then
+        print_message "yellow" "Skipping PostgreSQL container (using existing postgres)"
+        docker compose up -d $services --scale postgres=0
+    else
+        docker compose up -d $services
+    fi || {
+        print_message "red" "Failed to start services with docker-compose"
+        exit 1
+    }
+    sleep 30
+    print_message "yellow" "Waiting 30 seconds for Services to be fully ready..."
+    print_message "green" "Services started successfully."
+}
+
+studio() {
+    print_message "blue" "\n Setting up CREDEBL studio..."
+
+    local studio_port=${USED_PORTS["studio"]:-3000}
+    local http_url="http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}"
+    local ws_url="ws://$MACHINE_IP:${USED_PORTS["api-gateway"]}"
+
+    if [ -d "studio" ]; then
+        print_message "yellow" "Studio directory exists, pulling latest changes..."
+        cd studio && git pull origin main && cd ..
+    else
+        git clone -b main https://github.com/credebl/studio.git || {
+            print_message "red" "Failed to clone Studio repository"
+            exit 1
+        }
+    fi
+
+    # Configure environment
+    cd studio || {
+        print_message "red" "Failed to enter studio directory"
+        exit 1
+    }
+
+    if [ ! -f .env ]; then
+        print_message "yellow" "Copying .env.demo to .env..."
+        cp .env.demo .env || {
+            print_message "red" "Failed to copy .env.demo to .env"
+            exit 1
+        }
+    else
+        print_message "green" ".env already exists."
+    fi
+
+    sed_inplace "
+        s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=$http_url|;
+        s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
+        s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $http_url $ws_url\"|;
+    " .env
+
+     # Build and run the container
+    print_message "blue" "Building Studio Docker image..."
+    docker build -t credbl-studio . || {
+        print_message "red" "Failed to build Studio image"
+        exit 1
+    }
+
+    # Check if container already exists
+    if docker ps -a --format '{{.Names}}' | grep -q "^UI-App$"; then
+        print_message "yellow" "Removing existing UI-App container..."
+        docker rm -f UI-App || {
+            print_message "yellow" "Failed to remove existing container, continuing..."
+        }
+    fi
+
+    print_message "blue" "Starting Studio container..."
+    docker run -d \
+        -p $studio_port:8085 \
+        --env-file .env \
+        --name UI-App \
+        credbl-studio || {
+            print_message "red" "Failed to start Studio container"
+            exit 1
+        }
+    cd ..
+
+    print_message "green" "CREDEBL Studio started successfully on port $studio_port"
 }
 
 # Main execution flow
 main() {
-    prepare_environment
+    prepare_env_file
     configure_ports
+    prepare_environment_variable
     install_docker
     install_terraform
     deploy_keycloak
@@ -722,10 +934,13 @@ main() {
     generate_jwt_secret
     pull_credo_controller
     update_master_table
+    setup_schema_service
     start_services
-    update_env
+    studio
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
+    print_message "green" "Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}/api \n"
+    print_message "green" "Access the CREDEBL studio by navigating to http://${MACHINE_IP}:${USED_PORTS["studio"]} \n"
     echo "Check the logs for details: ${LOG_FILE}"
 }
 

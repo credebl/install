@@ -65,6 +65,17 @@ cleanup_files() {
             print_message "yellow" "Failed to remove secret.env"
     fi
     
+    if [ -f "studio/.env" ]; then
+        rm -f studio/.env && \
+            print_message "green" "Removed studio/.env" || \
+            print_message "yellow" "Failed to remove studio/.env"
+    fi
+
+    if [ -d "apps" ]; then
+        sudo rm apps -rf && \
+            print_message "green" "Removed apps folder" || \
+            print_message "yellow" "Failed to remove apps folder"
+    fi
     # Keep .env file but you can add removal here if needed
     print_message "green" "Preserved .env file"
 }
@@ -74,7 +85,7 @@ cleanup_containers() {
     print_message "blue" "Cleaning up application containers..."
     
     # List of containers created by setup.sh
-    local containers=("keycloak")
+    local containers=("credebl-keycloak" "UI-App")
     
     for container in "${containers[@]}"; do
         if docker ps -a --format '{{.Names}}' | grep -q "^${container}\$"; then

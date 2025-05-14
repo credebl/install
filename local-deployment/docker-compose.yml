@@ -21,7 +21,7 @@ services:
     volumes: 
       - cache:/data
   postgres:
-    container_name: postgres-db
+    container_name: credebl-postgres
     image: postgres:latest
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -46,6 +46,15 @@ services:
       - ./.env
     volumes:
       - ./credebl-master-table.json:/app/libs/prisma-service/prisma/data/credebl-master-table.json
+  schema-file-server:
+    container_name: schema-file-server
+    image: ghcr.io/credebl/schema-file-server:latest
+    ports:
+      - '4000:4000'
+    env_file:
+      - ./.env
+    volumes:
+      - $PWD/apps/schemas:/app/schemas
   api-gateway:
     container_name: api-gateway
     depends_on:
@@ -74,7 +83,7 @@ services:
       - nats  # Use depends_on instead of needs
       - api-gateway
       - seed
-      - postgres  
+      - postgres
     image: ghcr.io/credebl/utility:latest
     env_file:
       - ./.env
@@ -228,15 +237,6 @@ services:
     image: ghcr.io/credebl/webhook:latest
     env_file:
       - ./.env
-  schema-file-server:
-    container_name: schema-file-server
-    image: ghcr.io/credebl/schema-file-server:latest
-    ports:
-      - '4000:4000'
-    env_file:
-      - ./.env
-    volumes:
-      - $PWD/apps/schemas:/app/schemas
   
 volumes:
   platform-volume:
