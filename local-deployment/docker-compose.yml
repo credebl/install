@@ -21,7 +21,7 @@ services:
     volumes: 
       - cache:/data
   postgres:
-    container_name: postgres-db
+    container_name: credebl-postgres
     image: postgres:latest
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
@@ -46,6 +46,15 @@ services:
       - ./.env
     volumes:
       - ./credebl-master-table.json:/app/libs/prisma-service/prisma/data/credebl-master-table.json
+  schema-file-server:
+    container_name: schema-file-server
+    image: ghcr.io/credebl/schema-file-server:latest
+    ports:
+      - '4000:4000'
+    env_file:
+      - ./.env
+    volumes:
+      - $PWD/apps/schemas:/app/schemas
   api-gateway:
     container_name: api-gateway
     depends_on:
@@ -58,6 +67,8 @@ services:
       - '5000:5000'
     env_file:
       - ./.env
+    volumes:
+    - $PWD/apps/uploadedFiles/exports:/app/uploadedFiles/exports
   user:
     container_name: user-service
     depends_on:
@@ -74,7 +85,7 @@ services:
       - nats  # Use depends_on instead of needs
       - api-gateway
       - seed
-      - postgres  
+      - postgres
     image: ghcr.io/credebl/utility:latest
     env_file:
       - ./.env
@@ -102,6 +113,8 @@ services:
     image: ghcr.io/credebl/issuance:latest
     env_file:
       - ./.env
+    volumes:
+    - $PWD/apps/uploadedFiles/exports:/app/uploadedFiles/exports
   ledger:
     container_name: ledger-service
     depends_on:
@@ -158,8 +171,6 @@ services:
       - seed
       - postgres
     image: ghcr.io/credebl/agent-provisioning:latest
-    # args:
-    #   - ROOT_PATH=$PWD/apps/agent-provisioning/AFJ/agent-config
     env_file:
       - ./.env
     environment:
@@ -183,7 +194,6 @@ services:
       - agent-provisioning
       - seed
       - postgres
-    # command: sh -c 'until (docker logs platform-agent-provisioning-1 | grep "Agent-Provisioning-Service Microservice is listening to NATS"); do sleep 1; done && node dist/apps/agent-service/main.js'
     command: >
       sh -c '
         until docker logs agent-provisioning-service | grep "Agent-Provisioning-Service Microservice is listening to NATS"; do sleep 1; done &&
@@ -227,11 +237,6 @@ services:
       - nats
       - api-gateway
     image: ghcr.io/credebl/webhook:latest
-    env_file:
-      - ./.env
-  schema-file-server:
-    container_name: schema-file-server
-    image: ghcr.io/credebl/schema-file-server:latest
     env_file:
       - ./.env
   
