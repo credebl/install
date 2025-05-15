@@ -67,6 +67,8 @@ services:
       - '5000:5000'
     env_file:
       - ./.env
+    volumes:
+    - $PWD/apps/uploadedFiles/exports:/app/uploadedFiles/exports
   user:
     container_name: user-service
     depends_on:
