@@ -280,6 +280,15 @@ prepare_environment_variable() {
         print_message "red" "Failed to update .env file"
         exit 1
     }
+
+    if [ -n "$AWS_ORG_LOGO_BUCKET_NAME" ] && [ -n "$AWS_PUBLIC_REGION" ]; then
+        ORG_LOGO_URL="https://$AWS_ORG_LOGO_BUCKET_NAME.s3.$AWS_PUBLIC_REGION.amazonaws.com"
+    else
+        ORG_LOGO_BUCKET=$(grep "^AWS_ORG_LOGO_BUCKET_NAME=" .env | cut -d'=' -f2-)
+        ORG_LOGO_REGION=$(grep "^AWS_PUBLIC_REGION=" .env | cut -d'=' -f2-)
+        ORG_LOGO_URL="https://$ORG_LOGO_BUCKET.s3.$ORG_LOGO_REGION.amazonaws.com"
+    fi
+
     # use_external_postgres=$(prompt_yes_no "Do you want to use an existing PostgreSQL server?")
     # if [ "$use_external_postgres" == "yes" ]; then
     USE_EXISTING_POSTGRES=false
@@ -889,7 +898,7 @@ studio() {
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
         s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=$http_url|;
         s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
-        s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $http_url $ws_url\"|;
+        s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $http_url $ws_url $ORG_LOGO_URL\"|;
     " .env
 
      # Build and run the container
