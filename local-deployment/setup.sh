@@ -660,7 +660,7 @@ setup_keycloak_terraform() {
         exit 1
     }
 
-    if sed_inplace -E "s|^(root_url\s*=\s*\").*\"|\1${NEW_URL}\"|" terraform.tfvars; then
+    if sed_inplace -E "s|^(root_url\s*=\s*\").*\"|\\1${NEW_URL}\"|" terraform.tfvars; then
         print_message "green" "Keycloak root URL set to ${NEW_URL}"
     else
         print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
