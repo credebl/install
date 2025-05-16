@@ -225,7 +225,7 @@ prepare_environment_variable() {
     local AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY:-}
     local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
     local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
-    local STUDIO_URL="http://${MACHINE_IP}:${USED_PORTS[studio]}"
+    local STUDIO_URL="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
 
 
     handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
