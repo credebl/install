@@ -74,14 +74,12 @@ prepare_env_file(){
     fi
 }
 
-declare -A PORTS=(
-    ["postgres"]=5432
-    ["api-gateway"]=5000
-    ["redis"]=6379
-    ["keycloak"]=8080
-    ["schema-file-server"]=4000
-    ["studio"]=3000
-)
+PORTS_POSTGRES=5432
+PORTS_API_GATEWAY=5000
+PORTS_REDIS=6379
+PORTS_KEYCLOAK=8080
+PORTS_SCHEMA_FILE_SERVER=4000
+PORTS_STUDIO=3000
 
 # Function to check if port is available
 is_port_available() {
@@ -133,39 +131,43 @@ find_available_port() {
 
 # Check and assign ports
 configure_ports() {
-    declare -gA USED_PORTS  # Will store the final port assignments
-
-    for service in "${!PORTS[@]}"; do
-        base_port="${PORTS[$service]}"
-        available_port=$(find_available_port "$base_port")
-        
-        USED_PORTS["$service"]="$available_port"
-        echo -e "Assigned port $available_port for $service"
-    done
-
-    # Update .env file with selected ports
+    USED_PORT_POSTGRES=$(find_available_port "$PORTS_POSTGRES")
+    USED_PORT_API_GATEWAY=$(find_available_port "$PORTS_API_GATEWAY")
+    USED_PORT_REDIS=$(find_available_port "$PORTS_REDIS")
+    USED_PORT_KEYCLOAK=$(find_available_port "$PORTS_KEYCLOAK")
+    USED_PORT_SCHEMA_FILE_SERVER=$(find_available_port "$PORTS_SCHEMA_FILE_SERVER")
+    USED_PORT_STUDIO=$(find_available_port "$PORTS_STUDIO")
+    
+    echo "Assigned ports:"
+    echo "PostgreSQL: $USED_PORT_POSTGRES"
+    echo "API Gateway: $USED_PORT_API_GATEWAY"
+    echo "Redis: $USED_PORT_REDIS"
+    echo "Keycloak: $USED_PORT_KEYCLOAK"
+    echo "Schema Server: $USED_PORT_SCHEMA_FILE_SERVER"
+    echo "Studio: $USED_PORT_STUDIO"
+    
     update_ports_config
 }
 
 update_ports_config() {
     sed_inplace "
-        s|^PUBLIC_LOCALHOST_URL=.*|PUBLIC_LOCALHOST_URL=http://localhost:${USED_PORTS["api-gateway"]}|;
-        s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORTS["api-gateway"]}|;
-        s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORTS["api-gateway"]}|;
-        s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORTS["api-gateway"]}|;
-        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORTS["api-gateway"]}|;
-        s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORTS["redis"]}|;
-        s|^APP_PORT=.*|APP_PORT=${USED_PORTS["schema-file-server"]}|;
-        s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORTS["schema-file-server"]}/schemas/|;
-        s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORTS["postgres"]}|;
-        s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
-        s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
+        s|^PUBLIC_LOCALHOST_URL=.*|PUBLIC_LOCALHOST_URL=http://localhost:${USED_PORT_API_GATEWAY}|;
+        s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORT_API_GATEWAY}|;
+        s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORT_API_GATEWAY}|;
+        s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORT_API_GATEWAY}|;
+        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORT_API_GATEWAY}|;
+        s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORT_REDIS}|;
+        s|^APP_PORT=.*|APP_PORT=${USED_PORT_SCHEMA_FILE_SERVER}|;
+        s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORT_SCHEMA_FILE_SERVER}/schemas/|;
+        s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORT_POSTGRES}|;
+        s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORT_POSTGRES}/credebl|;
+        s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORT_POSTGRES}/credebl|;
     " .env
     sed_inplace "
-        s|[0-9]*:5432|${USED_PORTS["postgres"]}:5432|;
-        s|[0-9]*:5000|${USED_PORTS["api-gateway"]}:5000|;
-        s|[0-9]*:6379|${USED_PORTS["redis"]}:6379|;
-        s|[0-9]*:4000|${USED_PORTS["schema-file-server"]}:4000|;
+        s|[0-9]*:5432|${USED_PORT_POSTGRES}:5432|;
+        s|[0-9]*:5000|${USED_PORT_API_GATEWAY}:5000|;
+        s|[0-9]*:6379|${USED_PORT_REDIS}:6379|;
+        s|[0-9]*:4000|${USED_PORT_SCHEMA_FILE_SERVER}:4000|;
     " docker-compose.yml
 
     print_message "green" "Updated .env file and docker-compose available ports"
@@ -587,7 +589,7 @@ install_terraform_macos() {
 # Step 4: Deploy Keycloak
 deploy_keycloak() {
     local reuse_existing=false
-    local desired_port=${USED_PORTS["keycloak"]}
+    local desired_port=${USED_PORT_KEYCLOAK}
     print_message "purple" "Setting up Keycloak..."
 
     if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
@@ -646,7 +648,7 @@ deploy_keycloak() {
 # Step 5: Setup Keycloak using Terraform
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
-    NEW_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
+    NEW_URL="http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}"
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -864,9 +866,9 @@ start_services() {
 studio() {
     print_message "blue" "\n Setting up CREDEBL studio..."
 
-    local studio_port=${USED_PORTS["studio"]:-3000}
-    local http_url="http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}"
-    local ws_url="ws://$MACHINE_IP:${USED_PORTS["api-gateway"]}"
+    local studio_port=${USED_PORT_STUDIO:-3000}
+    local http_url="http://${MACHINE_IP}:${USED_PORT_API_GATEWAY}"
+    local ws_url="ws://$MACHINE_IP:${USED_PORT_API_GATEWAY}"
 
     if [ -d "studio" ]; then
         print_message "yellow" "Studio directory exists, pulling latest changes..."
@@ -948,8 +950,8 @@ main() {
     studio
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
-    print_message "green" "Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORTS["api-gateway"]}/api \n"
-    print_message "green" "Access the CREDEBL studio by navigating to http://${MACHINE_IP}:${USED_PORTS["studio"]} \n"
+    print_message "green" "Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORT_API_GATEWAY}/api \n"
+    print_message "green" "Access the CREDEBL studio by navigating to http://${MACHINE_IP}:${USED_PORT_KEYCLOAK} \n"
     echo "Check the logs for details: ${LOG_FILE}"
 }
 
