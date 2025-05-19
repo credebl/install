@@ -51,11 +51,11 @@ prompt_yes_no() {
   local response
 
   while true; do
-    read -p "$prompt_message (yes/no): " response
+    read -p "$prompt_message (Y/n): " response
     case "$response" in
-      yes|y) return 0 ;;
-      no|n) return 1 ;;
-      *) echo "Please enter only 'yes' or 'no'." ;;
+      y|yes) return 0 ;;
+      n|no) return 1 ;;
+      *) echo "Please enter only 'y' or 'n'." ;;
     esac
   done
 }
@@ -648,7 +648,7 @@ deploy_keycloak() {
 # Step 5: Setup Keycloak using Terraform
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
-    NEW_URL="http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}"
+    NEW_URL="\"http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}\""
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -660,7 +660,8 @@ setup_keycloak_terraform() {
         exit 1
     }
 
-    if sed_inplace -E "s|^(root_url\s*=\s*\").*\"|\\1${NEW_URL}\"|" terraform.tfvars; then
+    if grep -q '^root_url' terraform.tfvars ; then
+        sed_inplace "s|^root_url = .*|root_url = ${NEW_URL}|" terraform.tfvars
         print_message "green" "Keycloak root URL set to ${NEW_URL}"
     else
         print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
