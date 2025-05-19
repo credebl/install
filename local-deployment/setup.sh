@@ -686,7 +686,7 @@ setup_keycloak_terraform() {
 # Step 6: Update environment with Keycloak secret and JWT_token
 update_keycloak_secret() {
     print_message "blue" "Updating environment with Keycloak secret..."
-    KEYCLOAK_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
+    KEYCLOAK_URL="http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}"
 
     if [ ! -f "secret.env" ]; then
         print_message "red" "secret.env not found! Could not insert KEYCLOAK_MANAGEMENT_CLIENT_SECRET."
