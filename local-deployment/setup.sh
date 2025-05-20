@@ -953,7 +953,7 @@ main() {
     
     print_message "green" "\n🎉 Deployment completed successfully!\n"
     print_message "green" "Access the Platform API by navigating to http://${MACHINE_IP}:${USED_PORT_API_GATEWAY}/api \n"
-    print_message "green" "Access the CREDEBL studio by navigating to http://${MACHINE_IP}:${USED_PORT_KEYCLOAK} \n"
+    print_message "green" "Access the CREDEBL studio by navigating to http://${MACHINE_IP}:${USED_PORT_STUDIO} \n"
     echo "Check the logs for details: ${LOG_FILE}"
 }
 
