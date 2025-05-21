@@ -753,7 +753,7 @@ generate_jwt_secret() {
 pull_credo_controller() {
     print_message "blue" "Pulling credo-controller image..."
     
-    docker pull ghcr.io/credebl/credo-controller:latest || {
+    docker pull ghcr.io/kamblesahil3/credo-controller:latest || {
         print_message "red" "Failed to pull credo-controller image"
         exit 1
     }
