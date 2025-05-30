@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   nats:
-    container_name: nats
+    container_name: credebl-nats
     image: nats
     command: ["-c", "/nats-server.conf"]
     ports:
@@ -12,7 +12,7 @@ services:
     volumes:
       - ./nats-server.conf:/nats-server.conf:ro
   redis:
-    container_name: redis
+    container_name: credebl-redis
     image: redis:6.2-alpine
     restart: always
     ports:
