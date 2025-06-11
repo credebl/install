@@ -138,7 +138,7 @@ cleanup_images() {
     # Add any additional images not in docker-compose.yml
     images+=(
         "quay.io/keycloak/keycloak:25.0.6",
-        "ghcr.io/credebl/credo-controller:latest"
+        "ghcr.io/kamblesahil3/credo-controller:latest"
     )
 
     if [ ${#images[@]} -eq 0 ]; then
