@@ -694,7 +694,7 @@ deploy_keycloak() {
 # Step 5: Setup Keycloak using Terraform
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
-    NEW_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
+    NEW_URL="\"http://${MACHINE_IP}:${USED_PORTS["keycloak"]}\""
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
