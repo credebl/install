@@ -5,7 +5,7 @@ set -euo pipefail
 # Constants
 LOG_FILE="deployment.log"
 KEYCLOAK_VERSION="25.0.6"
-TERRAFORM_DIR="../terraform-script/keycloak/"
+TERRAFORM_DIR="../../terraform-script/keycloak/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 ROOT_DIR="../../local-deployment/"
 MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/"
