@@ -5,8 +5,9 @@ set -euo pipefail
 # Constants
 LOG_FILE="deployment.log"
 KEYCLOAK_VERSION="25.0.6"
-TERRAFORM_REPO="https://github.com/KambleSahil3/keycloak.git"
+TERRAFORM_DIR="../terraform-script/keycloak/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
+ROOT_DIR="../../local-deployment/"
 MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/"
 
 # Initialize logging
@@ -695,20 +696,18 @@ setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
     NEW_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
     
-    if [ -d "keycloak" ]; then
-        print_message "yellow" "Keycloak directory exists, pulling latest changes..."
-        cd keycloak && git pull origin main || {
-            print_message "red" "Failed to pull for keycloak repository"
-            exit 1
-        }
-    else
-        git clone -b main $TERRAFORM_REPO && cd keycloak || {
-            print_message "red" "Failed to clone Keycloak repository"
-            exit 1
-        }
+    if [ ! -d "${TERRAFORM_DIR}" ]; then
+        print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
+        exit 1
     fi
+    
+    cd "${TERRAFORM_DIR}" || {
+        print_message "red" "Failed to change directory to ${TERRAFORM_DIR}"
+        exit 1
+    }
 
-    if sed_inplace -E "s|^(root_url\s*=\s*\").*\"|\1${NEW_URL}\"|" terraform.tfvars; then
+    if grep -q '^root_url' terraform.tfvars ; then
+        sed_inplace "s|^root_url = .*|root_url = ${NEW_URL}|" terraform.tfvars
         print_message "green" "Keycloak root URL set to ${NEW_URL}"
     else
         print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
@@ -745,8 +744,8 @@ update_keycloak_secret() {
         return 1
     fi
     
-    cd .. || {
-        print_message "red" "Failed to change directory"
+    cd "${ROOT_DIR}" || {
+        print_message "red" "Failed to change directory to ${ROOT_DIR}"
         exit 1
     }
 
