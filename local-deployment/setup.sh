@@ -732,6 +732,7 @@ setup_keycloak_terraform() {
 # Step 6: Update environment with Keycloak secret and JWT_token
 update_keycloak_secret() {
     print_message "blue" "Updating environment with Keycloak secret..."
+    KEYCLOAK_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
     
     if [ ! -f "secret.env" ]; then
         print_message "red" "secret.env not found! Could not insert KEYCLOAK_MANAGEMENT_CLIENT_SECRET."
@@ -750,8 +751,8 @@ update_keycloak_secret() {
     }
 
     sed_inplace "
-    s|^KEYCLOAK_DOMAIN=.*|KEYCLOAK_DOMAIN=$(escape_sed "$NEW_URL")/|;
-    s|^KEYCLOAK_ADMIN_URL=.*|KEYCLOAK_ADMIN_URL=$(escape_sed "$NEW_URL")|;
+    s|^KEYCLOAK_DOMAIN=.*|KEYCLOAK_DOMAIN=$(escape_sed "$KEYCLOAK_URL")/|;
+    s|^KEYCLOAK_ADMIN_URL=.*|KEYCLOAK_ADMIN_URL=$(escape_sed "$KEYCLOAK_URL")|;
     " .env || {
         print_message "red" "Failed to update Keycloak root url in .env"
         return 1
