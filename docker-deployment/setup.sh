@@ -6,7 +6,7 @@ set -euo pipefail
 LOG_FILE="deployment.log"
 KEYCLOAK_VERSION="25.0.6"
 TERRAFORM_DIR="../terraform-script/keycloak/"
-ROOT_DIR="../../local-deployment/"
+ROOT_DIR="../../docker-deployment/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 
 # Initialize logging
