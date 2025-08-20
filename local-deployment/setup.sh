@@ -7,7 +7,7 @@ LOG_FILE="deployment.log"
 KEYCLOAK_VERSION="25.0.6"
 TERRAFORM_DIR="../../terraform-script/keycloak/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
-ROOT_DIR="../../local-deployment/"
+ROOT_DIR="../../local-deployment/platform/"
 MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/"
 
 # Initialize logging
