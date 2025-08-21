@@ -93,13 +93,11 @@ prepare_env_file(){
     fi
 }
 
-declare -A PORTS=(
-    ["postgres"]=5432
-    ["api-gateway"]=5000
-    ["redis"]=6379
-    ["schema-file-server"]=4000
-    ["keycloak"]=8080
-)
+PORTS_POSTGRES=5432
+PORTS_API_GATEWAY=5000
+PORTS_REDIS=6379
+PORTS_KEYCLOAK=8080
+PORTS_SCHEMA_FILE_SERVER=4000
 
 # Function to check if port is available
 is_port_available() {
@@ -151,36 +149,38 @@ find_available_port() {
 
 # Check and assign ports
 configure_ports() {
-    declare -gA USED_PORTS  # Will store the final port assignments
-
-    for service in "${!PORTS[@]}"; do
-        base_port="${PORTS[$service]}"
-        available_port=$(find_available_port "$base_port")
-        
-        USED_PORTS["$service"]="$available_port"
-        echo -e "Assigned port $available_port for $service"
-    done
-
-    # Update .env file with selected ports
+    USED_PORT_POSTGRES=$(find_available_port "$PORTS_POSTGRES")
+    USED_PORT_API_GATEWAY=$(find_available_port "$PORTS_API_GATEWAY")
+    USED_PORT_REDIS=$(find_available_port "$PORTS_REDIS")
+    USED_PORT_KEYCLOAK=$(find_available_port "$PORTS_KEYCLOAK")
+    USED_PORT_SCHEMA_FILE_SERVER=$(find_available_port "$PORTS_SCHEMA_FILE_SERVER")
+    
+    echo "Assigned ports:"
+    echo "PostgreSQL: $USED_PORT_POSTGRES"
+    echo "API Gateway: $USED_PORT_API_GATEWAY"
+    echo "Redis: $USED_PORT_REDIS"
+    echo "Keycloak: $USED_PORT_KEYCLOAK"
+    echo "Schema Server: $USED_PORT_SCHEMA_FILE_SERVER"
+    
     update_ports_config
 }
 
 update_ports_config() {
     sed_inplace "
-        s|^PUBLIC_LOCALHOST_URL=.*|PUBLIC_LOCALHOST_URL=http://localhost:${USED_PORTS["api-gateway"]}|;
-        s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORTS["api-gateway"]}|;
-        s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORTS["api-gateway"]}|;
-        s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORTS["api-gateway"]}|;
-        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORTS["api-gateway"]}|;
-        s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORTS["redis"]}|;
-        s|^APP_PORT=.*|APP_PORT=${USED_PORTS["schema-file-server"]}|;
-        s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORTS["schema-file-server"]}/schemas/|;
-        s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORTS["postgres"]}|;
-        s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
-        s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORTS["postgres"]}/credebl|;
+        s|^PUBLIC_LOCALHOST_URL=.*|PUBLIC_LOCALHOST_URL=http://localhost:${USED_PORT_API_GATEWAY}|;
+        s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORT_API_GATEWAY}|;
+        s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORT_API_GATEWAY}|;
+        s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORT_API_GATEWAY}|;
+        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORT_API_GATEWAY}|;
+        s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORT_REDIS}|;
+        s|^APP_PORT=.*|APP_PORT=${USED_PORT_SCHEMA_FILE_SERVER}|;
+        s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORT_SCHEMA_FILE_SERVER}/schemas/|;
+        s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORT_POSTGRES}|;
+        s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORT_POSTGRES}/credebl|;
+        s|^DATABASE_URL=.*|DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORT_POSTGRES}/credebl|;
     " .env
     sed_inplace "
-        s|[0-9]*:6379|${USED_PORTS["redis"]}:6379|;
+        s|[0-9]*:6379|${USED_PORT_REDIS}:6379|;
     " docker-compose.redis.yml
     print_message "green" "Updated .env file and docker-compose available ports"
 }
@@ -357,7 +357,7 @@ services:
       timeout: 5s
       retries: 5
     ports:
-      - "${USED_PORTS["postgres"]}:5432"
+      - "${USED_PORT_POSTGRES}:5432"
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -371,7 +371,7 @@ EOF
     fi
 
     sed_inplace "
-    s|^SERVER_URL=.*|SERVER_URL=http://$MACHINE_IP:${USED_PORTS["schema-file-server"]}|;
+    s|^SERVER_URL=.*|SERVER_URL=http://$MACHINE_IP:${USED_PORT_SCHEMA_FILE_SERVER}|;
     " agent.env
     print_message "green" "Environment file configured successfully."
 }
@@ -627,7 +627,7 @@ install_terraform_macos() {
 # Step 4: Deploy Keycloak and Postgres
 deploy_keycloak() {
     local reuse_existing=false
-    local desired_port=${USED_PORTS["keycloak"]}
+    local desired_port=${USED_PORT_KEYCLOAK}
     print_message "purple" "Setting up Keycloak..."
 
     if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
@@ -710,7 +710,7 @@ deploy_keycloak() {
 # Step 5: Setup Keycloak using Terraform
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
-    NEW_URL="\"http://${MACHINE_IP}:${USED_PORTS["keycloak"]}\""
+    NEW_URL="\"http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}\""
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -748,7 +748,7 @@ setup_keycloak_terraform() {
 # Step 6: Update environment with Keycloak secret and JWT_token
 update_keycloak_secret() {
     print_message "blue" "Updating environment with Keycloak secret..."
-    KEYCLOAK_URL="http://${MACHINE_IP}:${USED_PORTS["keycloak"]}"
+    KEYCLOAK_URL="http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}"
     
     if [ ! -f "secret.env" ]; then
         print_message "red" "secret.env not found! Could not insert KEYCLOAK_MANAGEMENT_CLIENT_SECRET."
@@ -879,7 +879,7 @@ setup_schema_service(){
     print_message "blue" "Setting up Schema Service..."
     docker rm schema-file-server -f
     docker run -d \
-            -p ${USED_PORTS["schema-file-server"]}:4000 \
+            -p ${USED_PORT_SCHEMA_FILE_SERVER}:4000 \
             --name schema-file-server \
             --env-file .env \
             -v "$PWD/apps/schemas:/app/schemas" \
