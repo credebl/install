@@ -201,20 +201,36 @@ prepare_environment_variable() {
         local current_value=$(grep "^$var_name=" .env | cut -d'=' -f2-)
         
         # Check for existing value
-        if [ -n "$current_value" ]; then
-            if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
-                eval "$var_name=\"$current_value\""
-                print_message "green" "Using existing $var_name"
-                return
+        if [[ -n "$current_value" ]]; then
+            if [[ "$var_name" =~ (PASS|KEY) ]]; then
+                # Don't show the actual value
+                if prompt_yes_no "Found existing $var_name (hidden). Continue with this value?"; then
+                    printf -v "$var_name" '%s' "$current_value"
+                    print_message "green" "Using existing $var_name"
+                    return
+                else
+                    print_message "yellow" "Will prompt for new $var_name value"
+                fi
             else
-                print_message "yellow" "Will prompt for new $var_name value"
-                unset current_value
+                # Safe to display non-sensitive values
+                if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
+                    printf -v "$var_name" '%s' "$current_value"
+                    print_message "green" "Using existing $var_name"
+                    return
+                else
+                    print_message "yellow" "Will prompt for new $var_name value"
+                fi
             fi
         fi
         
         # Input loop
         while true; do
-            read -p "$prompt: " $var_name
+            if [[ "$var_name" =~ (PASS|KEY) ]]; then
+                read -rs -p "$prompt: " "$var_name"
+                echo  # Move to a new line after silent input
+            else
+                read -r -p "$prompt: " "$var_name"
+            fi
             if [ "$required" = "true" ] && [ -z "${!var_name}" ]; then
                 print_message "red" "Value cannot be empty"
             else
