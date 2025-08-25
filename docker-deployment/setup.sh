@@ -474,8 +474,10 @@ install_docker_ubuntu() {
             print_message "red" "Failed to add $USER to docker group"
             exit 1
         }
+        sudo apt update && sudo apt install -y openssl
     else
         print_message "green" "Docker and Docker Compose are already installed."
+        sudo apt update && sudo apt install -y openssl
     fi
 }
 
@@ -501,6 +503,7 @@ install_docker_macos() {
     print_message "blue" "Detected macOS. Checking Docker installation..."
     
     if ! command_exists docker; then
+        brew install openssl
         print_message "red" "Docker is not installed. Please install Docker Desktop for macOS. \
         You can refer to this URL: https://docs.docker.com/desktop/setup/install/mac-install/"
         exit 1
@@ -885,6 +888,7 @@ studio() {
     print_message "blue" "\n Setting up CREDEBL studio..."
 
     local studio_port=${USED_PORT_STUDIO:-3000}
+    local studio_url="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
     local http_url="http://${MACHINE_IP}:${USED_PORT_API_GATEWAY}"
     local ws_url="ws://$MACHINE_IP:${USED_PORT_API_GATEWAY}"
 
@@ -903,6 +907,8 @@ studio() {
         print_message "red" "Failed to enter studio directory"
         exit 1
     }
+    
+    SECRET_KEY=$(openssl rand -base64 32)
 
     if [ ! -f .env ]; then
         print_message "yellow" "Copying .env.demo to .env..."
@@ -917,6 +923,8 @@ studio() {
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
         s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=$http_url|;
+        s|^NEXTAUTH_SECRET=.*|NEXTAUTH_SECRET=$SECRET_KEY|;
+        s|^NEXTAUTH_URL=.*|NEXTAUTH_URL=$studio_url|;
         s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
         s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $http_url $ws_url $ORG_LOGO_URL\"|;
     " .env
