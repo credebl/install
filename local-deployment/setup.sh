@@ -69,8 +69,8 @@ clone_platform(){
     echo "You entered branch: $BRANCH"
 
     if [ -d "platform" ]; then
-        print_message "yellow" "Studio directory exists, pulling latest changes..."
-        cd platform && git checkout $BRANCH && git pull origin $BRANCH
+        print_message "yellow" "Platform directory exists, pulling latest changes..."
+        cd platform && git fetch origin && git checkout $BRANCH && git pull origin $BRANCH
     else
         git clone -b main https://github.com/credebl/platform.git || {
             print_message "red" "Failed to clone Studio repository"
@@ -284,6 +284,7 @@ prepare_environment_variable() {
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|localhost|$(escape_sed "$MACHINE_IP")|g;
         s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
         /^# Used for storing connection URL/,/^$/ {
             s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
@@ -711,6 +712,7 @@ deploy_keycloak() {
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
     NEW_URL="\"http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}\""
+    REDIRECT_URL="\"http://${MACHINE_IP}:${USED_PORT_STUDIO}\""
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -724,7 +726,8 @@ setup_keycloak_terraform() {
 
     if grep -q '^root_url' terraform.tfvars ; then
         sed_inplace "s|^root_url = .*|root_url = ${NEW_URL}|" terraform.tfvars
-        print_message "green" "Keycloak root URL set to ${NEW_URL}"
+        sed_inplace "s|^redirect_url = .*|redirect_url = ${REDIRECT_URL}|" terraform.tfvars
+        print_message "green" "Keycloak root URL set to ${NEW_URL} and redirect url set to ${REDIRECT_URL}"
     else
         print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
     fi

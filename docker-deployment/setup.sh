@@ -64,8 +64,8 @@ prompt_yes_no() {
 # Step 1: Prepare env file and Check  ports availability
 prepare_env_file(){
     if [ ! -f .env ]; then
-    print_message "yellow" "Copying .env.demo to .env..."
-    cp .env.demo .env || {
+    print_message "yellow" "Copying .env file"
+    curl -L -o .env https://raw.githubusercontent.com/credebl/platform/refs/heads/main/.env.demo || {
         print_message "red" "Failed to copy .env.demo to .env"
         exit 1
     }
@@ -165,7 +165,7 @@ update_ports_config() {
     " .env
     sed_inplace "
         s|[0-9]*:5432|${USED_PORT_POSTGRES}:5432|;
-        s|[0-9]*:5000|${USED_PORT_API_GATEWAY}:5000|;
+        s|[0-9]*:5000|${USED_PORT_API_GATEWAY}:${USED_PORT_API_GATEWAY}|;
         s|[0-9]*:6379|${USED_PORT_REDIS}:6379|;
         s|[0-9]*:4000|${USED_PORT_SCHEMA_FILE_SERVER}:4000|;
     " docker-compose.yml
@@ -179,7 +179,10 @@ prepare_environment_variable() {
     print_message "yellow" "Preparing environment files..."
 
     escape_sed() {
-        echo "$1" | sed -e 's/[\/&]/\\&/g'
+    printf '%s' "$1" \
+        | sed -e 's/[\/&|]/\\&/g' \
+            -e ':a;N;$!ba;s/\n/\\n/g' \
+            -e 's/\\/\\\\/g'
     }
 
     handle_existing_value() {
@@ -274,6 +277,9 @@ prepare_environment_variable() {
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|localhost|$(escape_sed "$MACHINE_IP")|g;
+        s|^CREDEBL_DOMAIN=.*|CREDEBL_DOMAIN=$(escape_sed "$STUDIO_URL")|;
+        s|^FRONT_END_URL=.*|FRONT_END_URL=$(escape_sed "$STUDIO_URL")|;
         s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
         /^# Used for storing connection URL/,/^$/ {
             s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
@@ -474,10 +480,8 @@ install_docker_ubuntu() {
             print_message "red" "Failed to add $USER to docker group"
             exit 1
         }
-        sudo apt update && sudo apt install -y openssl
     else
         print_message "green" "Docker and Docker Compose are already installed."
-        sudo apt update && sudo apt install -y openssl
     fi
 }
 
@@ -503,7 +507,6 @@ install_docker_macos() {
     print_message "blue" "Detected macOS. Checking Docker installation..."
     
     if ! command_exists docker; then
-        brew install openssl
         print_message "red" "Docker is not installed. Please install Docker Desktop for macOS. \
         You can refer to this URL: https://docs.docker.com/desktop/setup/install/mac-install/"
         exit 1
@@ -668,6 +671,7 @@ deploy_keycloak() {
 setup_keycloak_terraform() {
     print_message "blue" "Setting up Keycloak via Terraform..."
     NEW_URL="\"http://${MACHINE_IP}:${USED_PORT_KEYCLOAK}\""
+    REDIRECT_URL="\"http://${MACHINE_IP}:${USED_PORT_STUDIO}\""
     
     if [ ! -d "${TERRAFORM_DIR}" ]; then
         print_message "red" "Terraform directory not found: ${TERRAFORM_DIR}"
@@ -681,7 +685,8 @@ setup_keycloak_terraform() {
 
     if grep -q '^root_url' terraform.tfvars ; then
         sed_inplace "s|^root_url = .*|root_url = ${NEW_URL}|" terraform.tfvars
-        print_message "green" "Keycloak root URL set to ${NEW_URL}"
+        sed_inplace "s|^redirect_url = .*|redirect_url = ${REDIRECT_URL}|" terraform.tfvars
+        print_message "green" "Keycloak root URL set to ${NEW_URL} and redirect url set to ${REDIRECT_URL}"
     else
         print_message "red"   "Failed to set keycloak root url in terraform.tfvars"
     fi
@@ -712,8 +717,8 @@ update_keycloak_secret() {
         return 1
     fi
     
-    SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-    if [ -z "$SECRET" ]; then
+    CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$CLIENT_SECRET" ]; then
         print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
         return 1
     fi
@@ -732,12 +737,12 @@ update_keycloak_secret() {
     }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET/" .env || {
             print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
@@ -746,23 +751,41 @@ update_keycloak_secret() {
     print_message "green" "Keycloak secret updated in .env successfully."
 }
 
-generate_jwt_secret() {
+generate_secret() {
     print_message "blue" "Generating JWT secret..."
     
     install_nodejs
     
+    # Extract values from .env file
+    CLIENT_ID=$(grep '^KEYCLOAK_MANAGEMENT_CLIENT_ID=' .env | cut -d '=' -f2-)
+    CRYPTO_PRIVATE_KEY=$(grep '^CRYPTO_PRIVATE_KEY=' .env | cut -d '=' -f2-)
+
     # Generate secure random secret
-    local JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
+    JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
     
     if [[ -z "$JWT_TOKEN_SECRET" ]]; then
         print_message "red" "Failed to generate JWT secret"
         exit 1
     fi
 
+    if openssl enc -aes-256-cbc -pbkdf2 -k test < /dev/null >/dev/null 2>&1; then
+        OPENSSL_ARGS="-aes-256-cbc -a -salt -pbkdf2 -iter 100000"
+    else
+        OPENSSL_ARGS="-aes-256-cbc -a -salt"
+        print_message "yellow" "OpenSSL too old, using deprecated key derivation."
+    fi
+
+    AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
+
     # Update .env file
-    sed_inplace "s/^JWT_TOKEN_SECRET=.*/JWT_TOKEN_SECRET=$JWT_TOKEN_SECRET/" .env || {
-        print_message "red" "Failed to update JWT secret in .env"
-        exit 1
+    sed_inplace "
+    s|^JWT_TOKEN_SECRET=.*|JWT_TOKEN_SECRET=$(escape_sed "$JWT_TOKEN_SECRET")|;
+    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID='$(escape_sed "$AES_ENCRYPTED_CLIENT_ID")'|;
+    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET='$(escape_sed "$AES_ENCRYPTED_CLIENT_SECRET")'|;
+    " .env || {
+        print_message "red" "Failed to update secrets in .env"
+        return 1
     }
 
     print_message "green" "JWT secret generated and stored successfully"
@@ -922,10 +945,13 @@ studio() {
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
-        s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=$http_url|;
+        s|localhost|$(escape_sed "$MACHINE_IP")|g;
+        s|^NEXT_PUBLIC_BASE_URL=.*|NEXT_PUBLIC_BASE_URL=$http_url|;
         s|^NEXTAUTH_SECRET=.*|NEXTAUTH_SECRET=$SECRET_KEY|;
         s|^NEXTAUTH_URL=.*|NEXTAUTH_URL=$studio_url|;
-        s|^PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$SECRET")|;
+        s|^NEXT_PUBLIC_ENABLE_APP_LAUNCHER=.*|NEXT_PUBLIC_ENABLE_APP_LAUNCHER=false|;
+        s|^NEXT_PUBLIC_ENABLE_SOCIAL_LOGIN=.*|NEXT_PUBLIC_ENABLE_SOCIAL_LOGIN=false|;
+        s|^NEXT_PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|NEXT_PUBLIC_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$(escape_sed "$CLIENT_SECRET")|;
         s|^PUBLIC_ALLOW_DOMAIN=\"\(.*\)\"|PUBLIC_ALLOW_DOMAIN=\"\1 $http_url $ws_url $ORG_LOGO_URL\"|;
     " .env
 
@@ -946,7 +972,7 @@ studio() {
 
     print_message "blue" "Starting Studio container..."
     docker run -d \
-        -p $studio_port:8085 \
+        -p $studio_port:3000 \
         --env-file .env \
         --name UI-App \
         credbl-studio || {
@@ -968,7 +994,7 @@ main() {
     deploy_keycloak
     setup_keycloak_terraform
     update_keycloak_secret
-    generate_jwt_secret
+    generate_secret
     pull_credo_controller
     update_master_table
     setup_schema_service
