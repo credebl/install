@@ -98,6 +98,7 @@ PORTS_API_GATEWAY=5000
 PORTS_REDIS=6379
 PORTS_KEYCLOAK=8080
 PORTS_SCHEMA_FILE_SERVER=4000
+PORTS_STUDIO=3000
 
 # Function to check if port is available
 is_port_available() {
@@ -154,6 +155,7 @@ configure_ports() {
     USED_PORT_REDIS=$(find_available_port "$PORTS_REDIS")
     USED_PORT_KEYCLOAK=$(find_available_port "$PORTS_KEYCLOAK")
     USED_PORT_SCHEMA_FILE_SERVER=$(find_available_port "$PORTS_SCHEMA_FILE_SERVER")
+    USED_PORT_STUDIO=$(find_available_port "$PORTS_STUDIO")
     
     echo "Assigned ports:"
     echo "PostgreSQL: $USED_PORT_POSTGRES"
@@ -161,6 +163,7 @@ configure_ports() {
     echo "Redis: $USED_PORT_REDIS"
     echo "Keycloak: $USED_PORT_KEYCLOAK"
     echo "Schema Server: $USED_PORT_SCHEMA_FILE_SERVER"
+    echo "Studio: $USED_PORT_STUDIO"
     
     update_ports_config
 }
@@ -191,8 +194,11 @@ prepare_environment_variable() {
     print_message "yellow" "Preparing environment files..."
 
     escape_sed() {
-        echo "$1" | sed -e 's/[\/&]/\\&/g'
-    }
+        printf '%s' "$1" \
+            | sed -e 's/[\/&|]/\\&/g' \
+                -e ':a;N;$!ba;s/\n/\\n/g' \
+                -e 's/\\/\\\\/g'
+        }
 
     handle_existing_value() {
         local var_name=$1
@@ -253,6 +259,7 @@ prepare_environment_variable() {
     local AWS_PUBLIC_SECRET_KEY=${AWS_PUBLIC_SECRET_KEY:-}
     local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
     local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
+    local STUDIO_URL="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
 
     handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
     handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
@@ -285,6 +292,8 @@ prepare_environment_variable() {
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
         s|localhost|$(escape_sed "$MACHINE_IP")|g;
+        s|^CREDEBL_DOMAIN=.*|CREDEBL_DOMAIN=$(escape_sed "$STUDIO_URL")|;
+        s|^FRONT_END_URL=.*|FRONT_END_URL=$(escape_sed "$STUDIO_URL")|;
         s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
         /^# Used for storing connection URL/,/^$/ {
             s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
@@ -758,8 +767,8 @@ update_keycloak_secret() {
         return 1
     fi
     
-    SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-    if [ -z "$SECRET" ]; then
+    CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$CLIENT_SECRET" ]; then
         print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
         return 1
     fi
@@ -778,12 +787,12 @@ update_keycloak_secret() {
     }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET/" .env || {
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET/" .env || {
             print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
@@ -792,28 +801,45 @@ update_keycloak_secret() {
     print_message "green" "Keycloak secret updated in .env successfully."
 }
 
-generate_jwt_secret() {
+generate_secret() {
     print_message "blue" "Generating JWT secret..."
     
     install_nodejs
     
+    # Extract values from .env file
+    CLIENT_ID=$(grep '^KEYCLOAK_MANAGEMENT_CLIENT_ID=' .env | cut -d '=' -f2-)
+    CRYPTO_PRIVATE_KEY=$(grep '^CRYPTO_PRIVATE_KEY=' .env | cut -d '=' -f2-)
+
     # Generate secure random secret
-    local JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
+    JWT_TOKEN_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 2>/dev/null)
     
     if [[ -z "$JWT_TOKEN_SECRET" ]]; then
         print_message "red" "Failed to generate JWT secret"
         exit 1
     fi
 
+    if openssl enc -aes-256-cbc -pbkdf2 -k test < /dev/null >/dev/null 2>&1; then
+        OPENSSL_ARGS="-aes-256-cbc -a -salt -pbkdf2 -iter 100000"
+    else
+        OPENSSL_ARGS="-aes-256-cbc -a -salt"
+        print_message "yellow" "OpenSSL too old, using deprecated key derivation."
+    fi
+
+    AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
+
     # Update .env file
-    sed_inplace "s/^JWT_TOKEN_SECRET=.*/JWT_TOKEN_SECRET=$JWT_TOKEN_SECRET/" .env || {
-        print_message "red" "Failed to update JWT secret in .env"
-        exit 1
+    sed_inplace "
+    s|^JWT_TOKEN_SECRET=.*|JWT_TOKEN_SECRET=$(escape_sed "$JWT_TOKEN_SECRET")|;
+    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID='$(escape_sed "$AES_ENCRYPTED_CLIENT_ID")'|;
+    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET='$(escape_sed "$AES_ENCRYPTED_CLIENT_SECRET")'|;
+    " .env || {
+        print_message "red" "Failed to update secrets in .env"
+        return 1
     }
 
     print_message "green" "JWT secret generated and stored successfully"
 }
-
 # Step 7: Pull credo-controller image
 pull_credo_controller() {
     print_message "blue" "Pulling credo-controller image..."
@@ -989,7 +1015,7 @@ main(){
     deploy_keycloak
     setup_keycloak_terraform
     update_keycloak_secret
-    generate_jwt_secret
+    generate_secret
     pull_credo_controller
     update_master_table
     prisma_setup
