@@ -4,7 +4,7 @@ set -euo pipefail
 
 # Constants
 LOG_FILE="deployment.log"
-KEYCLOAK_VERSION="25.0.6"
+KEYCLOAK_VERSION="26.3.0"
 TERRAFORM_DIR="../terraform-script/keycloak/"
 ROOT_DIR="../../docker-deployment/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
@@ -612,7 +612,31 @@ install_terraform_macos() {
 deploy_keycloak() {
     local reuse_existing=false
     local desired_port=${USED_PORT_KEYCLOAK}
+    local KC_ENV_FILE="./keycloak.env"
     print_message "purple" "Setting up Keycloak..."
+
+    cat > $KC_ENV_FILE <<EOF
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+
+KC_HTTP_ENABLED=true
+KC_DB=postgres
+KC_DB_URL=jdbc:postgresql://$POSTGRES_HOST:$POSTGRES_PORT/postgres
+KC_DB_USERNAME=$POSTGRES_USER
+KC_DB_PASSWORD=$POSTGRES_PASSWORD
+KC_DB_URL_PORT=$POSTGRES_PORT
+PROXY_ADDRESS_FORWARDING=true
+
+KC_HOSTNAME_ADMIN_URL=http://$POSTGRES_HOST:$USED_PORT_KEYCLOAK/
+KC_HOSTNAME_URL=http://$POSTGRES_HOST:$USED_PORT_KEYCLOAK/
+
+KC_PROXY=edge
+KC_HOSTNAME_STRICT=false
+KC_LOG=console
+KC_HOSTNAME_STRICT_HTTPS=false
+
+KC_HTTPS_ENABLED=true
+EOF
 
     if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
         keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "credebl-keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
