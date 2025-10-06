@@ -621,7 +621,7 @@ KEYCLOAK_ADMIN_PASSWORD=admin
 
 KC_HTTP_ENABLED=true
 KC_DB=postgres
-KC_DB_URL=jdbc:postgresql://$POSTGRES_HOST:$POSTGRES_PORT/postgres
+KC_DB_URL=jdbc:postgresql://$POSTGRES_HOST:$POSTGRES_PORT/credebl-keycloak
 KC_DB_USERNAME=$POSTGRES_USER
 KC_DB_PASSWORD=$POSTGRES_PASSWORD
 KC_DB_URL_PORT=$POSTGRES_PORT
@@ -670,9 +670,8 @@ EOF
         docker run -d \
             -p ${desired_port}:8080 \
             --name "$container_name" \
-            -e KEYCLOAK_ADMIN=admin \
-            -e KEYCLOAK_ADMIN_PASSWORD=admin \
-            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev && \
+            --env-file $KC_ENV_FILE \
+            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start && \
             print_message "green" "Keycloak started successfully" || {
                 print_message "red" "Failed to start Keycloak container"
                 exit 1

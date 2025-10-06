@@ -638,8 +638,31 @@ install_terraform_macos() {
 deploy_keycloak() {
     local reuse_existing=false
     local desired_port=${USED_PORT_KEYCLOAK}
+    local KC_ENV_FILE="./keycloak.env"
     print_message "purple" "Setting up Keycloak..."
 
+    cat > $KC_ENV_FILE <<EOF
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+
+KC_HTTP_ENABLED=true
+KC_DB=postgres
+KC_DB_URL=jdbc:postgresql://$POSTGRES_HOST:$POSTGRES_PORT/credebl-keycloak
+KC_DB_USERNAME=$POSTGRES_USER
+KC_DB_PASSWORD=$POSTGRES_PASSWORD
+KC_DB_URL_PORT=$POSTGRES_PORT
+PROXY_ADDRESS_FORWARDING=true
+
+KC_HOSTNAME_ADMIN_URL=http://$POSTGRES_HOST:$USED_PORT_KEYCLOAK/
+KC_HOSTNAME_URL=http://$POSTGRES_HOST:$USED_PORT_KEYCLOAK/
+
+KC_PROXY=edge
+KC_HOSTNAME_STRICT=false
+KC_LOG=console
+KC_HOSTNAME_STRICT_HTTPS=false
+
+KC_HTTPS_ENABLED=true
+EOF
     if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
         keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "credebl-keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
         print_message "yellow" "Found existing Keycloak container ($keycloak_container) with matching version"
@@ -690,9 +713,8 @@ deploy_keycloak() {
         docker run -d \
             -p ${desired_port}:8080 \
             --name "$container_name" \
-            -e KEYCLOAK_ADMIN=admin \
-            -e KEYCLOAK_ADMIN_PASSWORD=admin \
-            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev && \
+            --env-file $KC_ENV_FILE \
+            quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start && \
             print_message "green" "Keycloak started successfully" || {
                 print_message "red" "Failed to start Keycloak container"
                 exit 1
