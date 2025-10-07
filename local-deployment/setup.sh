@@ -192,7 +192,7 @@ update_ports_config() {
 
 prepare_environment_variable() {
     print_message "yellow" "Preparing environment files..."
-
+    postgres_setup=false
     escape_sed() {
         printf '%s' "$1" \
             | sed -e 's/[\/&|]/\\&/g' \
@@ -710,7 +710,7 @@ deploy_keycloak() {
         fi
     fi
 
-    if [ "$postgres_setup" = true ]; then
+    if [[ "${postgres_setup:-false}" == true ]]; then
         docker compose -f "$DOCKER_COMPOSE_POSTGRES" up -d
     fi
     docker compose -f docker-compose.nats.yml up -d
