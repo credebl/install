@@ -1,6 +1,6 @@
 resource "aws_s3_object" "ui_env" {
   bucket  = var.env_file_bucket_id
-  key     = "${var.environment}-UI.env"
+  key     = "${var.environment}-ui.env"
   content = <<-EOT
     PUBLIC_BASE_URL=http://${local.api_gateway_service_connect}  # api-gateway url
 
@@ -8,8 +8,8 @@ PUBLIC_CRYPTO_PRIVATE_KEY=${var.crypto_private_key}  # cpoy crypto key from banc
 PUBLIC_PLATFORM_NAME=upper(var.project_name)
 PUBLIC_PLATFORM_LOGO="https://${var.org_logo_bucket_dns}/assets/logo.png"
 PUBLIC_POWERED_BY= upper(var.project_name)
-PUBLIC_PLATFORM_WEB_URL=http://${var.alb_details["UI"].dns} 
-PUBLIC_POWERED_BY_URL=http://${var.alb_details["UI"].dns} 
+PUBLIC_PLATFORM_WEB_URL=http://${var.alb_details["ui"].dns} 
+PUBLIC_POWERED_BY_URL=http://${var.alb_details["ui"].dns} 
 PUBLIC_PLATFORM_DOCS_URL=""
 PUBLIC_PLATFORM_GIT=""
 PUBLIC_PLATFORM_SUPPORT_EMAIL=""

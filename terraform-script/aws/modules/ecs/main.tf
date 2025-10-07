@@ -52,10 +52,3 @@ module "service" {
   redis_server_task_definitions_arn=module.taskdenitions.redis_server_task_definitions_arn
   REDIS_CONFIG = var.REDIS_CONFIG
 }
-
-# module "keycloak" {
-#   source = "./KEYCLOAK"
-#   environment = var.environment
-#   env_file_bucket_id = var.env_file_bucket_id
-#   alb_details = var.alb_details
-# }

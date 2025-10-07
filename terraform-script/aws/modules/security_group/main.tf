@@ -248,7 +248,7 @@ resource "aws_security_group" "REDIS_SG" {
     from_port       = local.REDIS_CONFIG.PORT
     to_port         = local.REDIS_CONFIG.PORT
     protocol        = "tcp"
-    security_groups = [aws_security_group.APP_SG["API_GATEWAY"].id]
+    security_groups = [aws_security_group.APP_SG["api-gateway"].id]
   }
 
   egress {
@@ -273,7 +273,7 @@ resource "aws_security_group" "EFS_SG" {
     to_port     = local.EFS_PORT
     protocol    = "tcp"
     security_groups = flatten([
-      [aws_security_group.APP_SG["API_GATEWAY"].id, aws_security_group.SCHEMA_FILE_SERVICE_SG.id],
+      [aws_security_group.APP_SG["api-gateway"].id, aws_security_group.SCHEMA_FILE_SERVICE_SG.id],
       lower(var.environment) != "dev" ? [for i in aws_security_group.NATS_SG : i.id] : []
     ])
   }

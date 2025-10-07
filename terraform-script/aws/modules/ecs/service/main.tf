@@ -9,11 +9,11 @@ resource "aws_ecs_cluster" "cluster" {
 resource "aws_ecs_service" "withport_server" {
   for_each           = { for service in var.SERVICE_CONFIG.WITH_PORT : service.SERVICE_NAME => service}
 
-  name               = "${each.value.SERVICE_NAME}_SERVICE"
+  name               = "${each.value.SERVICE_NAME}-service"
   cluster            = aws_ecs_cluster.cluster.id
   task_definition    = var.with_port_task_definitions[each.value.SERVICE_NAME]
   launch_type        = "FARGATE"
-   desired_count = each.value["SERVICE_NAME"] == "KEYCLOAK" ? 1 : local.ecs_service_desired_count
+   desired_count = each.value["SERVICE_NAME"] == "keycloak" ? 1 : local.ecs_service_desired_count
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
@@ -46,7 +46,7 @@ resource "aws_ecs_service" "withport_server" {
 
 # Schema File Server Service (second service definition)
 resource "aws_ecs_service" "schema_file_server" {
-  name            = upper("${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}_SERVICE")
+  name            = lower("${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}-service")
   cluster         = aws_ecs_cluster.cluster.name
   task_definition = var.schema_file_server_task_definition
   desired_count   = local.ecs_service_desired_count
@@ -81,7 +81,7 @@ resource "aws_ecs_service" "schema_file_server" {
 
 # Agent Provisioning Service
 resource "aws_ecs_service" "agent_provisioning_service" {
-  name            = upper("${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}_SERVICE")
+  name            = lower("${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}-service")
   cluster         = aws_ecs_cluster.cluster.name
   task_definition = var.agent_provisioning_service_task_definition
   desired_count   = local.ecs_service_desired_count
@@ -89,7 +89,7 @@ resource "aws_ecs_service" "agent_provisioning_service" {
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
-    security_groups  = [lookup(var.app_security_group_ids, "API_GATEWAY", "default_sg_id")]
+    security_groups  = [lookup(var.app_security_group_ids, "api-gateway", "default_sg_id")]
     assign_public_ip = true
   }
 
@@ -107,7 +107,7 @@ resource "aws_ecs_service" "agent_provisioning_service" {
 resource "aws_ecs_service" "withoutport_service" {
   for_each = var.without_port_task_definitions
 
-  name               = "${each.key}_SERVICE"  # The service name
+  name               = "${each.key}-service"  # The service name
   cluster            = aws_ecs_cluster.cluster.id
   task_definition    = each.value  # Directly reference the ARN string
   launch_type        = "FARGATE"
@@ -115,7 +115,7 @@ resource "aws_ecs_service" "withoutport_service" {
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
-    security_groups  = [lookup(var.app_security_group_ids, "API_GATEWAY", "default_sg_id")]
+    security_groups  = [lookup(var.app_security_group_ids, "api-gateway", "default_sg_id")]
     assign_public_ip = true
   }
   service_connect_configuration {
@@ -134,10 +134,10 @@ resource "aws_ecs_service" "withoutport_service" {
 resource "aws_ecs_service" "nats_service" {
   count = lower(var.environment) != "prod" ? 1 : 3  # Create only 1 for dev, 3 for prod
 
-  name            = "NATS-${count.index + 1}_SERVICE"
+  name            = "nats-${count.index + 1}-service"
   cluster         = aws_ecs_cluster.cluster.id  # ECS Cluster ID
   task_definition = var.nats_service_task_definitions[count.index]  # Task definition ARN from the task definition module
-  desired_count   = 1  # The number of tasks you want running
+  desired_count   = local.ecs_service_desired_count  # The number of tasks you want running
   launch_type     = "FARGATE"
 
   network_configuration {
@@ -172,7 +172,7 @@ resource "aws_ecs_service" "nats_service" {
 
 # RedisServer Service (second service definition)
 resource "aws_ecs_service" "redis_server" {
-  name            = upper("${var.REDIS_CONFIG.SERVICE_NAME}_SERVICE")
+  name            = lower("${var.REDIS_CONFIG.SERVICE_NAME}-service")
   cluster         = aws_ecs_cluster.cluster.name
   task_definition = var.redis_server_task_definitions_arn
   desired_count   = local.ecs_service_desired_count

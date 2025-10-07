@@ -27,7 +27,7 @@ variable "log_groups_schema_file_server" {}
 variable "AGENT_PROVISIONING_SERVICE" {}
 variable "image_url" {
   type = string
-  default = "public.ecr.aws/ayanworks-technologies/credebl:"
+  default = "ghcr.io/credebl"
 }
 variable "log_groups_agent_provisioning_service" {}
 variable "SCHEMA_FILE_SERVICE_CONFIG" {}

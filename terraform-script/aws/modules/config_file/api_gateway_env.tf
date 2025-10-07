@@ -28,7 +28,7 @@ resource "aws_s3_object" "api_gateway_env" {
     REDIS_HOST=${local.redis_service_connect}
     REDIS_PORT=${var.REDIS_CONFIG.PORT}
     SENDGRID_API_KEY=${var.SENDGRID_API_KEY}
-    FRONT_END_URL=http://${var.alb_details["UI"].dns} 
+    FRONT_END_URL=http://${var.alb_details["ui"].dns} 
     AGENT_PROTOCOL=http
     WALLET_STORAGE_HOST=${local.api_gateway_rds_proxy_credentials.endpoint}
     WALLET_STORAGE_PORT=${local.api_gateway_db_credentials.port}
@@ -49,7 +49,7 @@ resource "aws_s3_object" "api_gateway_env" {
     AFJ_VERSION=afj-0.4.2:latest
     PLATFORM_ADMIN_EMAIL=platform.admin@yopmail.com
     AFJ_AGENT_TOKEN_PATH=/agent-provisioning/AFJ/agent-config/token/
-    AFJ_IMAGE_URL=public.ecr.aws/ayanworks-technologies/credebl:CREDO
+    AFJ_IMAGE_URL=ghcr.io/credebl/credo-controller:v2.1.0
 
     FIDO_API_ENDPOINT=${local.webauthn_service_connect}
 
@@ -57,14 +57,14 @@ resource "aws_s3_object" "api_gateway_env" {
     POOL_DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_rds_proxy_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform?pgbouncer=true
     PLATFORM_LOGO=CREDEBL_LOGO.svg
     POWERED_BY=Blockster Labs Pvt. Ltd.
-    PLATFORM_WEB_URL=http://${var.alb_details["UI"].dns}
+    PLATFORM_WEB_URL=http://${var.alb_details["ui"].dns}
     POWERED_BY_URL=https://blockster.global
     UPLOAD_LOGO_HOST=${local.api_gateway_service_connect}
     API_GATEWAY_PROTOCOL_SECURE=http
     AWS_ORG_LOGO_BUCKET_NAME=${var.org_logo_bucket_id}
     OOB_BATCH_SIZE=10
-    KEYCLOAK_DOMAIN=http://${var.alb_details["KEYCLOAK"].dns} 
-    KEYCLOAK_ADMIN_URL=http://${var.alb_details["KEYCLOAK"].dns} 
+    KEYCLOAK_DOMAIN=http://${var.alb_details["keycloak"].dns} 
+    KEYCLOAK_ADMIN_URL=http://${var.alb_details["keycloak"].dns} 
     KEYCLOAK_MASTER_REALM=master
     KEYCLOAK_MANAGEMENT_CLIENT_ID=xxxxxxxxxx
     KEYCLOAK_MANAGEMENT_CLIENT_SECRET=xxxxxxxxx
@@ -86,7 +86,7 @@ resource "aws_s3_object" "api_gateway_env" {
     SCHEMA_FILE_SERVER_TOKEN=xxxxxxxx
     GEO_LOCATION_MASTER_DATA_IMPORT_SCRIPT=/prisma/scripts/geo_location_data_import.sh
     UPDATE_CLIENT_CREDENTIAL_SCRIPT=/prisma/scripts/update_client_credential_data.sh
-    ENABLE_CORS_IP_LIST=http://localhost:3000,http://localhost:5000,http://${var.alb_details["KEYCLOAK"].dns},http://${var.alb_details["UI"].dns} 
+    ENABLE_CORS_IP_LIST=http://localhost:3000,http://localhost:5000,http://${var.alb_details["keycloak"].dns},http://${var.alb_details["ui"].dns} 
     NEW_PAYLOAD_SIZE_LIMIT=5MB
     KEYCLOAK_PASSWORD_MIN_SIZE=8
     # Dynamic secrets for services

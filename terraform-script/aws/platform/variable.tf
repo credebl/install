@@ -27,3 +27,5 @@ variable "platform_db" {}
 variable "crypto_private_key" {}
 variable "platform_seed" {}
 variable "PLATFORM_WALLET_PASSWORD" {} 
+
+variable "certificate_arn" {}

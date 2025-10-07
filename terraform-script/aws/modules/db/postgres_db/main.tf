@@ -14,14 +14,14 @@ resource "random_string" "db_passwords" {
 resource "aws_db_instance" "rds_instance" {
   for_each               = local.db_configs
   identifier             = "${lower(replace("${var.project_name}-${var.environment}-${each.key}", "_", "-"))}-db"
-  instance_class         = each.key == "MEDIATOR" || each.key == "CREDO" ? var.aries_db : var.platform_db
+  instance_class         = each.key == "mediator" || each.key == "credo" ? var.aries_db : var.platform_db
   engine                 = "postgres"
   engine_version         = data.aws_rds_engine_version.latest_postgres.version
-  allocated_storage      = var.environment == "dev" ? 30 : (each.key == "MEDIATOR" || each.key == "CREDO" ? 100 : 50)
-  storage_type           = var.environment == "dev" ? "gp2" : (each.key == "MEDIATOR" || each.key == "CREDO" ? "io2" : "gp2")
+  allocated_storage      = var.environment == "dev" ? 30 : (each.key == "mediator" || each.key == "credo" ? 100 : 50)
+  storage_type           = var.environment == "dev" ? "gp2" : (each.key == "mediator" || each.key == "credo" ? "io2" : "gp2")
   max_allocated_storage = 500
   # Set IOPS conditionally based on storage type
-  iops                   = var.environment == "dev" ? "gp2" : (each.key == "MEDIATOR" || each.key == "CREDO" ? each.value.iops : null)
+  iops                   = var.environment == "dev" ? "gp2" : (each.key == "mediator" || each.key == "credo" ? each.value.iops : null)
 
   multi_az               = true
   username               = each.value.username

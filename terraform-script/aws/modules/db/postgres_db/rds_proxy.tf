@@ -124,7 +124,10 @@ resource "aws_db_proxy_target" "db_proxy_target" {
   target_group_name = "default" # Use the default target group for the proxy
 
   # Attach an RDS instance or cluster
-  db_instance_identifier =  "${lower(replace("${var.project_name}-${var.environment}-${each.key}", "_", "-"))}-db"
+  db_instance_identifier =  replace(lower("${var.project_name}-${var.environment}-${each.key}-db"), "_", "-")
   # Or, if you're using an RDS cluster:
   # db_cluster_identifier = each.value.db_cluster_id
+    depends_on = [
+    aws_db_instance.rds_instance
+  ]
 }

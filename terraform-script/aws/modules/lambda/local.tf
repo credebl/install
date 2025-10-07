@@ -13,23 +13,22 @@ locals {
 
 locals {
   services = [
-   "USER_SERVICE",
-    "API_GATEWAY_SERVICE",
-    "ORGANIZATION_SERVICE",
-    "AGENT_PROVISIONING_SERVICE",
-    "AGENT_SERVICE_SERVICE",
-    "VERIFICATION_SERVICE",
-    "LEDGER_SERVICE",
-    "ISSUANCE_SERVICE",
-    "CONNECTION_SERVICE",
-    "ECOSYSTEM_SERVICE",
-    "CREDENTAILDEFINITION_SERVICE",
-    "SCHEMA_SERVICE",
-    "WEBHOOK_SERVICE",
-    "UTILITIES_SERVICE",
-    "NOTIFICATION_SERVICE",
-    "GEOLOCATION_SERVICE",
-    "CLOUD_WALLET_SERVICE"
+   "user-service",
+    "api-gateway-service",
+    "organization-service",
+    "agent-provisioning-service",
+    "agent-service",
+    "verification-service",
+    "ledger-service",
+    "issuance-service",
+    "connection-service",
+    "CREDENTAILDEFINITION_SERVICE_3",
+    "schema-file-server-service",
+    "webhook-service",
+    "utility-service",
+    "notification-service",
+    "geolocation-service",
+    "cloud-wallet-service",
   ]
 }
 

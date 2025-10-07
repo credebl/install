@@ -13,8 +13,8 @@ resource "aws_s3_object" "keycloak_env" {
     KC_DB_URL_PORT=${local.keycloak_db_credentials.port}
     PROXY_ADDRESS_FORWARDING=true
 
-    KC_HOSTNAME_ADMIN_URL=http://${var.alb_details["KEYCLOAK"].dns}/
-    KC_HOSTNAME_URL=http://${var.alb_details["KEYCLOAK"].dns}/
+    KC_HOSTNAME_ADMIN_URL=http://${var.alb_details["keycloak"].dns}/
+    KC_HOSTNAME_URL=http://${var.alb_details["keycloak"].dns}/
 
     KC_PROXY=none
     KC_HOSTNAME_STRICT=false

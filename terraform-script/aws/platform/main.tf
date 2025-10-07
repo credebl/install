@@ -51,15 +51,6 @@ module "security_groups" {
   depends_on                 = [module.nat_gateway, module.vpc, module.root]
 }
 
-module "ecr" {
-  source         = "../modules/ecr"
-  SERVICE_CONFIG = module.security_groups.SERVICE_CONFIG
-  environment    = module.root.environment
-  project_name   = module.root.project_name
-  depends_on     = [module.security_groups]
-}
-
-
 module "iam" {
   source       = "../modules/iam"
   environment  = module.root.environment
@@ -116,6 +107,7 @@ module "alb" {
   schema_file_service_alb_sg_id = module.security_groups.schema_file_service_alb_sg_id
   SERVICE_CONFIG                = module.security_groups.SERVICE_CONFIG
   app_security_group_ids        = module.security_groups.app_security_group_ids
+  certificate_arn               = var.certificate_arn
 }
 
 
@@ -140,7 +132,7 @@ module "envfile" {
   env_file_bucket_arn        = module.s3.env_file_bucket_arn
   link_bucket_id             = module.s3.link_bucket_id
   env_file_bucket_id         = module.s3.env_file_bucket_id
-  alb_dns_by_service         = module.alb.alb_dns_by_service
+  alb_dns_by_service         = module.alb.alb_dns
   SERVICE_CONFIG             = module.security_groups.SERVICE_CONFIG
   SCHEMA_FILE_SERVICE_CONFIG = module.security_groups.SCHEMA_FILE_SERVICE_CONFIG
   database_info_by_service   = module.db.database_info_by_service
@@ -212,5 +204,5 @@ module "ecs" {
   alb_details                           = module.alb.alb_details
   env_file_bucket_id                    = module.s3.env_file_bucket_id
   private_app_subnet_ids                = module.vpc.private_app_subnet_ids
-  depends_on                            = [module.cloudwatch_group, module.db, module.iam, module.ecr, module.efs, module.envfile, module.lambda, module.envfile]
+  depends_on                            = [module.cloudwatch_group, module.db, module.iam, module.efs, module.envfile, module.lambda, module.envfile]
 }

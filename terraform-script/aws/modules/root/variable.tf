@@ -60,7 +60,7 @@ variable "SERVICE_CONFIG" {
   default = {
     WITH_PORT = [
       {
-        SERVICE_NAME   = "API_GATEWAY"
+        SERVICE_NAME   = "api-gateway"
         PORT           = 5000
         DB_PORT        = 5432
         container_cmd  = ""
@@ -75,7 +75,7 @@ variable "SERVICE_CONFIG" {
         }
       },
       {
-        SERVICE_NAME   = "KEYCLOAK"
+        SERVICE_NAME   = "keycloak"
         PORT           = 8080
         DB_PORT        = 5432
         container_cmd  = "start"
@@ -90,7 +90,7 @@ variable "SERVICE_CONFIG" {
         }
       },
       {
-        SERVICE_NAME   = "MEDIATOR"
+        SERVICE_NAME   = "mediator"
         PORT           = 3000
         DB_PORT        = 5432
         container_cmd  = ""
@@ -105,7 +105,7 @@ variable "SERVICE_CONFIG" {
         }
       },
       {
-        SERVICE_NAME   = "WEB_AUTHN"
+        SERVICE_NAME   = "webauthn"
         PORT           = 8000
         DB_PORT        = null # Placeholder for services without DB_PORT
         container_cmd  = ""
@@ -120,7 +120,7 @@ variable "SERVICE_CONFIG" {
         }
       },
       {
-        SERVICE_NAME   = "UI"
+        SERVICE_NAME   = "ui"
         PORT           = 8085
         DB_PORT        = null # Placeholder for services without DB_PORT
         container_cmd  = ""
@@ -137,22 +137,22 @@ variable "SERVICE_CONFIG" {
     ]
 
     WITHOUT_PORT = [
-      "UTILITY_SERVICE",
-      "VERIFICATION_SERVICE",
-      "WEBHOOK_SERVICE",
-      "ORGANIZATION_SERVICE",
-      "CONNECTION_SERVICE",
-      "ISSUANCE_SERVICE",
-      "USER_SERVICE",
-      "NOTIFICATION_SERVICE",
-      "LEDGER_SERVICE",
-      "GEOLOCATION_SERVICE",
-      "CLOUD_WALLET_SERVICE",
-      "AGENT_SERVICE"
+      "utility",
+      "verification",
+      "webhook",
+      "organization",
+      "connection",
+      "issuance",
+      "user",
+      "notification",
+      "ledger",
+      "geolocation",
+      "cloud-wallet",
+      "agent-service"
     ]
 
     NATS = {
-      SERVICE_NAME = "NATS"
+      SERVICE_NAME = "nats"
       PORT         = [4222, 8222, 443, 4245]
     }
   }
@@ -173,7 +173,7 @@ variable "SCHEMA_FILE_SERVICE_CONFIG" {
   })
 
   default = {
-    SERVICE_NAME = "SCHEMA_FILE_SERVICE"
+    SERVICE_NAME = "schema-file-server"
     PORT         = 8000
     health_check = {
       path                = "/health"
@@ -194,18 +194,18 @@ variable "AGENT_PROVISIONING_SERVICE" {
   })
 
   default = {
-    SERVICE_NAME = "AGENT_PROVISIONING_SERVICE"
+    SERVICE_NAME = "agent-provisioning"
   }
 }
 
 variable "PLATFORM_WALLET_PASSWORD" {}
 variable "aries_db" {
   type    = string
-  default = "db.t3.medium"
+  default = "db.t4g.small"
 }
 variable "platform_db" {
   type    = string
-  default = "db.t3.medium"
+  default = "db.t4g.small"
 }
 
 variable "platform_seed" {}

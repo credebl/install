@@ -6,9 +6,6 @@ output "with_port_task_definitions" {
 
 }
 
-
-
-
 output "without_port_task_definitions" {
   value = {
     for service, task_def in aws_ecs_task_definition.without_port_task_definitions :
