@@ -20,7 +20,7 @@ resource "aws_ecs_task_definition" "with_port_task_definitions" {
 
       environmentFiles = [
         {
-          value = "${var.env_file_bucket_arn}/${var.environment}-${each.value.SERVICE_NAME}.env"
+          value = "${var.env_file_bucket_arn}/${var.environment}-${each.value.SERVICE_NAME == "api-gateway" ? "credebl" : each.value.SERVICE_NAME}.env"
           type  = "s3"
         }
       ]
@@ -73,10 +73,19 @@ resource "aws_ecs_task_definition" "without_port_task_definitions" {
 
       environmentFiles = [
         {
-          value = "${var.env_file_bucket_arn}/${var.environment}-API_GATEWAY.env"
+          value = "${var.env_file_bucket_arn}/${var.environment}-credebl.env"
           type  = "s3"
         }
       ]
+
+      # Conditional mount points for agent-service
+      mountPoints = each.value == "agent-service" ? [
+        {
+          containerPath = "/app/agent-provisioning/AFJ/token"
+          readOnly      = false
+          sourceVolume  = "agent-token"
+        }
+      ] : []
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -94,78 +103,18 @@ resource "aws_ecs_task_definition" "without_port_task_definitions" {
       }
     }
   ])
-}
+  dynamic "volume" {
+    for_each = each.value == "agent-service" ? [1] : []
 
-
-resource "aws_ecs_task_definition" "schema_file_server_task_definitions" {
-  family                   = upper("${var.project_name}_${var.environment}_${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}_TASKDEFINITION")
-  network_mode             = "awsvpc"
-  cpu                    = "512"
-  memory                 = "1024"
-  requires_compatibilities = ["FARGATE"]
-  execution_role_arn       = var.ecs_tasks_execution_role_arn
-  task_role_arn            = var.ecs_tasks_role_arn
-
-  container_definitions = jsonencode([
-    {
-      name      = var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME
-      image     = "${local.image_url}/${local.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}:v2.1.0"
-     cpu       = 512
-      memory    = 1024
-      essential = true
-
-      environmentFiles = [
-        {
-          value = "${var.env_file_bucket_arn}/${var.environment}-${local.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}.env"
-          type  = "s3"
-        }
-      ]
-      
-      mountPoints = [
-        {
-          sourceVolume  = "${local.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}_VOLUME"
-          containerPath = "/app/schemas"
-          readOnly      = false
-        }
-      ]
-
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          "awslogs-group"         = "/ecs/${var.project_name}_${var.environment}_${local.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}"
-          "awslogs-region"        = var.region
-          "awslogs-stream-prefix" = "ecs"
-          "awslogs-create-group"  = "true"
-        }
+    content {
+      name = "agent-token"
+      efs_volume_configuration {
+        file_system_id = var.credo_efs_id
+        root_directory = "/token"
       }
-
-      runtime_platform = {
-        cpuArchitecture       = "ARM64"
-        operatingSystemFamily = "LINUX"
-      }
-    
-      portMappings = [
-        {
-          containerPort = local.SCHEMA_FILE_SERVICE_CONFIG.PORT
-          hostPort      = local.SCHEMA_FILE_SERVICE_CONFIG.PORT
-          protocol      = "tcp",
-          name          = lower("${local.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}-${local.SCHEMA_FILE_SERVICE_CONFIG.PORT}-tcp")
-          appProtocol   = "http"
-        }
-      ]
-    }
-  ])
-
-  volume {
-    name = "${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}_VOLUME"
-    efs_volume_configuration {
-      file_system_id = var.schema_file_service_efs_id
-      root_directory = "/"
     }
   }
 }
-
-
 
 resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions" {
   family                 = upper("${var.project_name}_${var.environment}_${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}_TASKDEFINITION")
@@ -186,7 +135,7 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
 
       environmentFiles = [
         {
-          value = "${var.env_file_bucket_arn}/${var.environment}-API_GATEWAY.env"
+          value = "${var.env_file_bucket_arn}/${var.environment}-credebl.env"
           type  = "s3"
         }
       ]
@@ -194,6 +143,11 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
         {
           sourceVolume  = "agent-config"
           containerPath = "/app/agent-provisioning/AFJ/agent-config"
+          readOnly      = false
+        },
+        {
+          containerPath = "/app/agent-provisioning/AFJ/token"
+          sourceVolume  = "agent-token"
           readOnly      = false
         }
       ]
@@ -219,6 +173,13 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
     efs_volume_configuration {
       file_system_id = var.credo_efs_id
       root_directory = "/"
+    }
+  }
+  volume {
+    name = "agent-token"
+    efs_volume_configuration {
+      file_system_id = var.credo_efs_id
+      root_directory = "/token"
     }
   }
 
@@ -280,7 +241,6 @@ resource "aws_ecs_task_definition" "nats_service_task_definitions" {
         operatingSystemFamily = "LINUX"
       }
       
-      # command = [var.SERVICE_CONFIG.NATS.container_cmd]
     }
   ])
 
@@ -297,8 +257,8 @@ resource "aws_ecs_task_definition" "nats_service_task_definitions" {
 resource "aws_ecs_task_definition" "redis_server_task_definitions" {
   family                   = upper("${var.project_name}_${var.environment}_${var.REDIS_CONFIG.SERVICE_NAME}_TASKDEFINITION")
   network_mode             = "awsvpc"
-  cpu                    = "512"
-  memory                 = "1024"
+  cpu                      = "512"
+  memory                   = "1024"
   requires_compatibilities = ["FARGATE"]
   execution_role_arn       = var.ecs_tasks_execution_role_arn
   task_role_arn            = var.ecs_tasks_role_arn
@@ -310,16 +270,7 @@ resource "aws_ecs_task_definition" "redis_server_task_definitions" {
       cpu       = 512
       memory    = 1024
       essential = true
-
       environmentFiles = []
-      
-      mountPoints = [
-        {
-          sourceVolume  = "${var.REDIS_CONFIG.SERVICE_NAME}_VOLUME"
-          containerPath = "/data"
-          readOnly      = false
-        }
-      ]
 
       logConfiguration = {
         logDriver = "awslogs"
@@ -336,23 +287,155 @@ resource "aws_ecs_task_definition" "redis_server_task_definitions" {
         operatingSystemFamily = "LINUX"
       }
     
+      command = [
+        "redis-server",
+        "--save", "20", "1",
+        "--loglevel", "warning"
+      ]
+
       portMappings = [
         {
           containerPort = var.REDIS_CONFIG.PORT
           hostPort      = var.REDIS_CONFIG.PORT
           protocol      = "tcp",
           name          = lower("${var.REDIS_CONFIG.SERVICE_NAME}-${var.REDIS_CONFIG.PORT}-tcp")
-          appProtocol   = "http"
         }
       ]
     }
   ])
+}
+
+resource "aws_ecs_task_definition" "credo_taskdefinition" {
+  family                   = upper("${var.project_name}_${var.environment}_credo_TASKDEFINITION")
+  network_mode             = "awsvpc"
+  cpu                      = "1024"
+  memory                   = "2048"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = var.ecs_tasks_execution_role_arn
+  task_role_arn            = var.ecs_tasks_role_arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "credo"
+      image     = "${local.image_url}/credo-controller:v2.1.0"
+      cpu       = 1024
+      memory    = 2048
+      essential = true
+
+      environmentFiles = [
+        {
+          value = "${var.env_file_bucket_arn}/${var.environment}-credo.env"
+          type  = "s3"
+        }
+      ]
+      
+      mountPoints = [
+        {
+          sourceVolume  = "config"
+          containerPath = "/config"
+          readOnly      = false
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.project_name}_${var.environment}_credo"
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "ecs"
+          "awslogs-create-group"  = "true"
+        }
+      }
+      command = ["--auto-accept-connections", "--config", "/config/config.json"]
+      portMappings = [
+        {
+          containerPort = var.credo_port
+          hostPort      = var.credo_port
+          protocol      = "tcp",
+        },
+        {
+          containerPort = var.credo_inbound_port
+          hostPort      = var.credo_inbound_port
+          protocol      = "tcp",
+        }
+      ]
+
+      runtime_platform = {
+        cpuArchitecture       = "ARM64"
+        operatingSystemFamily = "LINUX"
+      }
+    }
+  ])
 
   volume {
-    name = "${var.REDIS_CONFIG.SERVICE_NAME}_VOLUME"
+    name = "config"
     efs_volume_configuration {
-      file_system_id = var.redis_efs_id
+      file_system_id = var.credo_efs_id
       root_directory = "/"
     }
   }
+
+}
+
+resource "aws_ecs_task_definition" "seed_taskdefinition" {
+  family                   = upper("${var.project_name}_${var.environment}_seed_TASKDEFINITION")
+  network_mode             = "awsvpc"
+  cpu                      = "256"
+  memory                   = "512"
+  requires_compatibilities = ["FARGATE"]
+  execution_role_arn       = var.ecs_tasks_execution_role_arn
+  task_role_arn            = var.ecs_tasks_role_arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "seed"
+      image     = "${local.image_url}/seed:v2.1.0"
+      cpu       = 256
+      memory    = 512
+      essential = true
+      
+      environmentFiles = [
+        {
+          value = "${var.env_file_bucket_arn}/${var.environment}-credebl.env"
+          type  = "s3"
+        }
+      ]
+
+      mountPoints = [
+        {
+          sourceVolume  = "seed-data"
+          containerPath = "/app/libs/prisma-service/prisma/data"
+          readOnly      = false
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.project_name}_${var.environment}_seed"
+          "awslogs-region"        = var.region
+          "awslogs-stream-prefix" = "ecs"
+          "awslogs-create-group"  = "true"
+        }
+      }
+
+      runtime_platform = {
+        cpuArchitecture       = "ARM64"
+        operatingSystemFamily = "LINUX"
+      }
+    }
+  ])
+
+  volume {
+    name = "seed-data"
+    efs_volume_configuration {
+      file_system_id = var.nats_efs_id
+      authorization_config {
+      access_point_id = var.nats_efs_access_point_id
+      iam             = "DISABLED"
+    }
+      transit_encryption = "ENABLED"
+    }
+  }
+
 }

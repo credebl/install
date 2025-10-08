@@ -1,9 +1,9 @@
 resource "aws_ecs_cluster" "cluster" {
   name = upper("${var.environment}-${var.project_name}_cluster")
-  setting {
-    name  = "containerInsights"
-    value = "enabled"
-  }
+}
+
+resource "aws_ecs_cluster" "credo_cluster" {
+  name = upper("${var.environment}-${var.project_name}-Agent_cluster")
 }
 
 resource "aws_ecs_service" "withport_server" {
@@ -13,7 +13,8 @@ resource "aws_ecs_service" "withport_server" {
   cluster            = aws_ecs_cluster.cluster.id
   task_definition    = var.with_port_task_definitions[each.value.SERVICE_NAME]
   launch_type        = "FARGATE"
-   desired_count = each.value["SERVICE_NAME"] == "keycloak" ? 1 : local.ecs_service_desired_count
+  desired_count      = local.ecs_service_desired_count
+  health_check_grace_period_seconds = 120
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
@@ -43,42 +44,6 @@ resource "aws_ecs_service" "withport_server" {
   depends_on = [var.target_group_arns]
 }
 
-
-# Schema File Server Service (second service definition)
-resource "aws_ecs_service" "schema_file_server" {
-  name            = lower("${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}-service")
-  cluster         = aws_ecs_cluster.cluster.name
-  task_definition = var.schema_file_server_task_definition
-  desired_count   = local.ecs_service_desired_count
-  launch_type     = "FARGATE"
-
-  network_configuration {
-    subnets          = var.private_app_subnet_ids
-    security_groups  = [var.schema_file_service_sg_id]
-    assign_public_ip = true
-  }
-
-  load_balancer {
-    target_group_arn = var.schema_file_target_group_arn
-    container_name   = var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME
-    container_port   = var.SCHEMA_FILE_SERVICE_CONFIG.PORT
-  }
-
-   service_connect_configuration {
-    enabled   = true
-    namespace = aws_service_discovery_http_namespace.cluster_namespace.arn
-    service {
-      port_name      = lower("${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}-${var.SCHEMA_FILE_SERVICE_CONFIG.PORT}-tcp")
-      discovery_name = lower("${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}-sc")
-      client_alias {
-        port = var.SCHEMA_FILE_SERVICE_CONFIG.PORT
-      }
-    }
-  }
-
-  depends_on = [var.schema_file_target_group_arn]
-}
-
 # Agent Provisioning Service
 resource "aws_ecs_service" "agent_provisioning_service" {
   name            = lower("${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}-service")
@@ -90,13 +55,12 @@ resource "aws_ecs_service" "agent_provisioning_service" {
   network_configuration {
     subnets          = var.private_app_subnet_ids
     security_groups  = [lookup(var.app_security_group_ids, "api-gateway", "default_sg_id")]
-    assign_public_ip = true
+    assign_public_ip = false
   }
 
    service_connect_configuration {
     enabled   = true
     namespace = aws_service_discovery_http_namespace.cluster_namespace.arn
-   
   }
 
   depends_on = [aws_ecs_cluster.cluster]
@@ -116,7 +80,7 @@ resource "aws_ecs_service" "withoutport_service" {
   network_configuration {
     subnets          = var.private_app_subnet_ids
     security_groups  = [lookup(var.app_security_group_ids, "api-gateway", "default_sg_id")]
-    assign_public_ip = true
+    assign_public_ip = false
   }
   service_connect_configuration {
     enabled   = true
@@ -143,7 +107,7 @@ resource "aws_ecs_service" "nats_service" {
   network_configuration {
     subnets          = var.private_app_subnet_ids
     security_groups  = [values(var.nats_security_group_ids)[count.index]]  # Convert the map to a list and use index
-    assign_public_ip = true  # Whether to assign a public IP to the tasks
+    assign_public_ip = false  # Whether to assign a public IP to the tasks
   }
 
   service_connect_configuration {
@@ -181,7 +145,7 @@ resource "aws_ecs_service" "redis_server" {
   network_configuration {
     subnets          = var.private_app_subnet_ids
     security_groups  = [var.redis_sg_id]
-    assign_public_ip = true
+    assign_public_ip = false
   }
    service_connect_configuration {
     enabled   = true
@@ -199,3 +163,16 @@ resource "aws_ecs_service" "redis_server" {
 }
 
 
+resource "aws_ecs_service" "seed" {
+  name = lower("seed-service")  
+  cluster = aws_ecs_cluster.cluster.name
+  task_definition = var.seed_task_definition_arn
+  desired_count = local.ecs_service_desired_count
+  launch_type = "FARGATE"
+
+  network_configuration {
+    subnets = var.private_app_subnet_ids
+    security_groups = values(var.nats_security_group_ids)
+    assign_public_ip = false
+  }
+}

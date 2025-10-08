@@ -13,10 +13,6 @@ resource "aws_cloudwatch_log_group" "log_groups_without_port" {
 }
 
 
-resource "aws_cloudwatch_log_group" "log_groups_schema_file_server" {
-  name = "/ecs/${var.project_name}_${var.environment}_${var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME}"
-}
-
 resource "aws_cloudwatch_log_group" "log_groups_agent_provisioning_service" {
   name = "/ecs/${var.project_name}_${var.environment}_${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}"
 }
@@ -33,4 +29,12 @@ resource "aws_cloudwatch_log_group" "log_groups_nats_service" {
 
 resource "aws_cloudwatch_log_group" "log_groups_redis_service" {
   name = "/ecs/${var.project_name}_${var.environment}_${var.REDIS_CONFIG.SERVICE_NAME}"
+}
+
+resource "aws_cloudwatch_log_group" "log_groups_credo_service" {
+  name = "/ecs/${var.project_name}_${var.environment}_credo"
+}
+
+resource "aws_cloudwatch_log_group" "log_groups_seed_service" {
+  name = "/ecs/${var.project_name}_${var.environment}_seed"
 }

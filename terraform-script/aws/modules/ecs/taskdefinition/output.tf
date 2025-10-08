@@ -14,11 +14,6 @@ output "without_port_task_definitions" {
   description = "The ARNs of ECS task definitions without ports"
 }
 
-output "schema_file_server_task_definition" {
-  value = aws_ecs_task_definition.schema_file_server_task_definitions.arn
-  description = "The ARN of the schema file server ECS task definition"
-}
-
 output "agent_provisioning_service_task_definition" {
   value = aws_ecs_task_definition.agent_provisioning_service_task_definitions.arn
   description = "The ARN of the agent provisioning service ECS task definition"
@@ -33,4 +28,8 @@ output "nats_service_task_definitions" {
 
 output "redis_server_task_definitions_arn" {
   value = aws_ecs_task_definition.redis_server_task_definitions.arn
+}
+
+output "seed_task_definition_arn" {
+  value = aws_ecs_task_definition.seed_taskdefinition.arn
 }

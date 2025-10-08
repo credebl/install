@@ -19,24 +19,19 @@ variable "log_groups_nats" {}
 variable "log_groups_without_port" {}
 variable "log_groups_with_port" {}
 variable "region" {}
-variable "schema_file_service_efs_id" {}
 variable "credo_efs_id" {}
 variable "nats_efs_id" {}
-variable "schema_file_service_sg_id" {}
-variable "SCHEMA_FILE_SERVICE_CONFIG" {}
-variable "log_groups_schema_file_server" {}
 variable "AGENT_PROVISIONING_SERVICE" {}
 variable "log_groups_agent_provisioning_service" {}
-variable "schema_file_service_alb_sg_id" {}
- variable "nats_alb_security_group_ids" {}
- variable "redis_efs_id" {}
- variable "redis_sg_id" {}
- variable "REDIS_CONFIG" {}
- variable "target_group_arns" {}
- variable "nats_target_group_arns" {}
- variable "schema_file_target_group_arn" {}
+variable "nats_alb_security_group_ids" {}
+variable "redis_sg_id" {}
+variable "REDIS_CONFIG" {}
+variable "target_group_arns" {}
 
 
- #keycloak
- variable "env_file_bucket_id" {}
- variable "alb_details" {}
+#keycloak
+variable "env_file_bucket_id" {}
+variable "alb_details" {}
+variable "credo_port" {}
+variable "credo_inbound_port" {}
+variable "nats_efs_access_point_id" {}
