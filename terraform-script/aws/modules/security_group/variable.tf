@@ -5,3 +5,6 @@ variable "vpc_id" {}
 variable "ALB_SG" {}
 variable "SERVICE_CONFIG" {}
 variable "AGENT_PROVISIONING_SERVICE" {}
+
+variable "credo_port" {}
+variable "credo_inbound_port" {}

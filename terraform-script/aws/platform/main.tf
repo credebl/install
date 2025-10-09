@@ -37,6 +37,8 @@ module "security_groups" {
   environment                = module.root.environment
   project_name               = module.root.project_name
   vpc_id                     = module.vpc.vpc_id
+  credo_port                 = module.root.credo_port
+  credo_inbound_port         = module.root.credo_inbound_port
   SERVICE_CONFIG             = module.root.SERVICE_CONFIG
   AGENT_PROVISIONING_SERVICE = module.root.AGENT_PROVISIONING_SERVICE
   ALB_SG                     = module.root.ALB_SG

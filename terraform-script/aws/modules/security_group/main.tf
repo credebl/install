@@ -31,7 +31,7 @@ resource "aws_security_group" "ALB_SG" {
 resource "aws_security_group" "APP_SG" {
   for_each = zipmap([for s in var.SERVICE_CONFIG.WITH_PORT : s.SERVICE_NAME], [for s in var.SERVICE_CONFIG.WITH_PORT : s.PORT])
 
-  name   = "${var.project_name}_${var.environment}-${each.key}_APP_SG"
+  name   = upper("${var.project_name}_${var.environment}-${each.key}_APP_SG")
   vpc_id = var.vpc_id
 
   ingress {
@@ -144,6 +144,36 @@ resource "aws_security_group" "REDIS_SG" {
   }
   tags = {
     Name = "${var.project_name}_${var.environment}_REDIS_SG"
+  }
+}
+
+resource "aws_security_group" "CREDO_SG" {
+  name   = "${var.project_name}_${var.environment}_CREDO_SG"
+  vpc_id = var.vpc_id
+
+  ingress {
+    description     = "ALB access to CREDO"
+    from_port       = var.credo_port
+    to_port         = var.credo_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ALB_SG.id]
+  }
+  ingress {
+  description     = "ALB access to CREDO"
+  from_port       = var.credo_inbound_port
+  to_port         = var.credo_inbound_port
+  protocol        = "tcp"
+  security_groups = [aws_security_group.ALB_SG.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1" # Allow all traffic
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "${var.project_name}_${var.environment}_CREDO_SG"
   }
 }
 
