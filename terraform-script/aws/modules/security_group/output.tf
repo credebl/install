@@ -1,6 +1,6 @@
 output "alb_security_group_ids" {
   description = "Security Group IDs for each service ALB"
-  value       = { for key, sg in aws_security_group.ALB_SG : key => sg.id }
+  value       = aws_security_group.ALB_SG.id
 }
 
 output "app_security_group_ids" {

@@ -3,7 +3,7 @@ resource "aws_lb" "alb" {
   name               = upper(replace("${var.environment}-${var.project_name}-alb", "_", "-"))
   internal           = false
   load_balancer_type = "application"
-  security_groups    = values(var.alb_security_group_ids) # Updated this line to access the security group ID directly
+  security_groups    = [var.alb_security_group_ids] # Updated this line to access the security group ID directly
   subnets            = var.public_subnet_ids
 
   enable_deletion_protection = false

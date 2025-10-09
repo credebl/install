@@ -1,14 +1,13 @@
 # ALB Security Group for each service with port
 resource "aws_security_group" "ALB_SG" {
-  for_each = zipmap([for s in var.SERVICE_CONFIG.WITH_PORT : s.SERVICE_NAME], [for s in var.SERVICE_CONFIG.WITH_PORT : s.PORT])
 
-  name   = "${var.project_name}_${var.environment}-${each.key}_ALB_SG"
+  name   = "${var.project_name}_${var.environment}_ALB_SG"
   vpc_id = var.vpc_id
 
   dynamic "ingress" {
     for_each = toset([80, 443])
     content {
-      description = "${each.key} ALB port access"
+      description = "ALB port access"
       from_port   = ingress.value
       to_port     = ingress.value
       protocol    = "tcp"
@@ -23,7 +22,7 @@ resource "aws_security_group" "ALB_SG" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
-    name = "${var.project_name}_${var.environment}-${each.key}_ALB_SG"
+    name = "${var.project_name}_${var.environment}_ALB_SG"
   }
 }
 
@@ -39,7 +38,7 @@ resource "aws_security_group" "APP_SG" {
     from_port       = each.value # Application's own port
     to_port         = each.value
     protocol        = "tcp"
-    security_groups = [aws_security_group.ALB_SG[each.key].id] # Ensure each.key exists in ALB_SG
+    security_groups = [aws_security_group.ALB_SG.id] # Ensure each.key exists in ALB_SG
   }
 
   egress {
