@@ -11,7 +11,7 @@ resource "aws_ecs_task_definition" "with_port_task_definitions" {
   container_definitions = jsonencode([
     {
       name      = each.value.SERVICE_NAME
-      image     = each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${local.image_url}/${each.value.SERVICE_NAME}:v2.1.0"
+      image     = each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${local.image_url}:${each.value.SERVICE_NAME}"
       cpu       = 512
       memory    = 1024
       essential = true
@@ -66,7 +66,7 @@ resource "aws_ecs_task_definition" "without_port_task_definitions" {
   container_definitions = jsonencode([
     {
       name      = each.value
-      image     = "${local.image_url}/${each.value}:v2.1.0"
+      image     = "${local.image_url}:${each.value}"
       cpu       = 512
       memory    = 1024
       essential = true
@@ -128,7 +128,7 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
   container_definitions = jsonencode([
     {
       name      = var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME
-      image     = "${local.image_url}/${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}:v2.1.0"
+      image     = "${local.image_url}:${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}"
       cpu       = 512
       memory    = 1024
       essential = true
@@ -317,7 +317,7 @@ resource "aws_ecs_task_definition" "credo_taskdefinition" {
   container_definitions = jsonencode([
     {
       name      = "credo"
-      image     = "${local.image_url}/credo-controller:v2.1.0"
+      image     = "${local.image_url}:credo-controller"
       cpu       = 1024
       memory    = 2048
       essential = true
@@ -389,7 +389,7 @@ resource "aws_ecs_task_definition" "seed_taskdefinition" {
   container_definitions = jsonencode([
     {
       name      = "seed"
-      image     = "${local.image_url}/seed:v2.1.0"
+      image     = "${local.image_url}:seed"
       cpu       = 256
       memory    = 512
       essential = true
