@@ -18,26 +18,6 @@ output "region" {
   value       = var.region
 }
 
-# output "vpc_cidr" {
-#   description = "The CIDR block for the VPC"
-#   value       = var.vpc_cidr
-# }
-
-# output "public_subnet_cidr" {
-#   description = "The CIDR blocks for the public subnets"
-#   value       = var.public_subnet_cidr
-# }
-
-# output "private_app_subnet_cidr" {
-#   description = "The CIDR blocks for the private application subnets"
-#   value       = var.private_app_subnet_cidr
-# }
-
-# output "private_db_subnet_cidr" {
-#   description = "The CIDR blocks for the private database subnets"
-#   value       = var.private_db_subnet_cidr
-# }
-
 output "SERVICE_CONFIG" {
   value = var.SERVICE_CONFIG
 }
