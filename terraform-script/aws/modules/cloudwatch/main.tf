@@ -32,7 +32,7 @@ resource "aws_cloudwatch_log_group" "log_groups_redis_service" {
 }
 
 resource "aws_cloudwatch_log_group" "log_groups_credo_service" {
-  name = "/ecs/${var.project_name}_${var.environment}_credo"
+  name = "/ecs/${upper("${var.project_name}_${var.environment}_credo_TASKDEFINITION")}"
 }
 
 resource "aws_cloudwatch_log_group" "log_groups_seed_service" {
