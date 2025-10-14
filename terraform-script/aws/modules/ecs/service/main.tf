@@ -47,7 +47,7 @@ resource "aws_ecs_service" "withport_server" {
 # Agent Provisioning Service
 resource "aws_ecs_service" "agent_provisioning_service" {
   name            = lower("${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}-service")
-  cluster         = aws_ecs_cluster.cluster.name
+  cluster         = aws_ecs_cluster.cluster.id
   task_definition = var.agent_provisioning_service_task_definition
   desired_count   = local.ecs_service_desired_count
   launch_type     = "FARGATE"
