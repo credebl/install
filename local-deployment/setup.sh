@@ -8,7 +8,7 @@ KEYCLOAK_VERSION="25.0.6"
 TERRAFORM_DIR="../../terraform-script/keycloak/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 ROOT_DIR="../../local-deployment/platform/"
-MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/"
+MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/credebl-master-table/"
 
 # Initialize logging
 exec > >(tee -a "${LOG_FILE}") 2>&1
@@ -194,11 +194,15 @@ prepare_environment_variable() {
     print_message "yellow" "Preparing environment files..."
     postgres_setup=false
     escape_sed() {
-        printf '%s' "$1" \
-            | sed -e 's/[\/&|]/\\&/g' \
-                -e ':a;N;$!ba;s/\n/\\n/g' \
-                -e 's/\\/\\\\/g'
-        }
+    input=$(printf "%s" "$1")
+    # Escape / & |
+    out=$(printf "%s" "$input" | sed 's/[/&|]/\&/g')
+    # Escape backslashes
+    out=$(printf "%s" "$out" | sed 's/\/\\/g')
+    # Replace newlines with literal \n
+    out=$(printf "%s" "$out" | tr '\n' '\n')
+    printf "%s" "$out"
+}
 
     handle_existing_value() {
         local var_name=$1
@@ -360,7 +364,7 @@ version: '3'
 services:
   postgres:
     container_name: credebl-postgres
-    image: postgres:latest
+    image: postgres:16
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -531,7 +535,24 @@ install_docker_debian() {
 
 install_docker_macos() {
     print_message "blue" "Detected macOS. Checking Docker installation..."
+    if ! command -v psql >/dev/null 2>&1; then
+    echo "psql not found. Installing PostgreSQL via Homebrew..."
+
+    # Install PostgreSQL (includes psql)
+    brew install postgresql
+
+    # Add Homebrew paths (Apple Silicon + Intel support)
+    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+    echo "PostgreSQL installed. psql is now available."
+    else
+    echo "psql already installed."
+    fi
     
+    # Ensure macOS has Homebrew paths correctly set for psql and other tools
+    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+    echo "PATH updated for Homebrew tools."
+
     if ! command_exists docker; then
         print_message "red" "Docker is not installed. Please install Docker Desktop for macOS. \
         You can refer to this URL: https://docs.docker.com/desktop/setup/install/mac-install/"
