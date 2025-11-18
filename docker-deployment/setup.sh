@@ -179,15 +179,16 @@ prepare_environment_variable() {
     print_message "yellow" "Preparing environment files..."
 
     escape_sed() {
-    input=$(printf "%s" "$1")
-    # Escape / & |
-    out=$(printf "%s" "$input" | sed 's/[/&|]/\&/g')
-    # Escape backslashes
-    out=$(printf "%s" "$out" | sed 's/\/\\/g')
-    # Replace newlines with literal \n
-    out=$(printf "%s" "$out" | tr '\n' '\n')
-    printf "%s" "$out"
-    }
+    input="$1"
+
+    # Escape sed delimiter and & so they don't break replacement
+    out=$(printf '%s' "$input" | sed 's/[\/&|]/\\&/g')
+
+    # Escape backslashes safely (can't do this with BSD sed reliably)
+    out=$(printf '%s' "$out" | awk '{gsub(/\\/, "\\\\"); print}')
+
+    printf '%s' "$out"
+}
 
     handle_existing_value() {
         local var_name=$1
@@ -760,7 +761,7 @@ generate_secret() {
     install_nodejs    
     escape_for_sed_replacement() {
     printf '%s' "$1" \
-        | sed 's/[&|]/\&/g'
+        | sed 's/[&|]/\\&/g'
     }
     # Extract values from .env file
     CLIENT_ID=$(grep '^KEYCLOAK_MANAGEMENT_CLIENT_ID=' .env | cut -d '=' -f2-)
@@ -777,15 +778,16 @@ generate_secret() {
         OPENSSL_ARGS="-aes-256-cbc -a -salt"
         print_message "yellow" "OpenSSL too old, using deprecated key derivation."
     fi
-    AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
-    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
+    AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
+
     # Update .env file
-    sed_inplace "
-    s|^JWT_TOKEN_SECRET=.*|JWT_TOKEN_SECRET=$new_secret|;
-    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID='$(escape_sed "$AES_ENCRYPTED_CLIENT_ID")'|;
-    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET='$(escape_sed "$AES_ENCRYPTED_CLIENT_SECRET")'|;
-    " .env || {
+    sed_inplace \
+    -e "s|^JWT_TOKEN_SECRET=.*|JWT_TOKEN_SECRET=$new_secret|" \
+    -e "s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID='$(escape_sed "$AES_ENCRYPTED_CLIENT_ID")'|" \
+    -e "s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET='$(escape_sed "$AES_ENCRYPTED_CLIENT_SECRET")'|" \
+    .env || {
         print_message "red" "Failed to update secrets in .env"
         return 1
     }
