@@ -424,14 +424,15 @@ install_nodejs() {
     fi
 }
 
-install_docker() {
-    local OS_ID
+detect_os() {
     if [ -f /etc/os-release ]; then
         OS_ID=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
     else
         OS_ID=$(uname -s)
     fi
+}
 
+install_docker() {
     case "$OS_ID" in
         "ubuntu")
             install_docker_ubuntu
@@ -992,6 +993,26 @@ configure_env() {
     echo "Configured .env file for local execution"
 }
 
+start_all() {
+    if [[ "$OS_ID" == "Darwin" ]]; then
+        start_services_macos
+    else
+        start_services
+    fi
+}
+
+start_services_macos() {
+    echo ""
+    echo "============================================"
+    echo " macOS detected — skipping auto-start"
+    echo "============================================"
+    echo "You can now start your services manually using pnpm."
+    echo ""
+    echo "Examples:"
+    echo "  pnpm run start                # API gateway"
+    echo "  pnpm run start user           # User Service"
+}
+
 start_services() {
     configure_env
     
@@ -1036,6 +1057,7 @@ main(){
     prepare_env_file
     configure_ports
     prepare_environment_variable
+    detect_os
     install_docker
     install_terraform
     deploy_keycloak
@@ -1046,7 +1068,7 @@ main(){
     update_master_table
     prisma_setup
     setup_schema_service
-    start_services
+    start_all
 }
 
 main
