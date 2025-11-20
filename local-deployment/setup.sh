@@ -195,14 +195,7 @@ prepare_environment_variable() {
     postgres_setup=false
     escape_sed() {
     input="$1"
-
-    # Escape sed delimiter and & so they don't break replacement
-    out=$(printf '%s' "$input" | sed 's/[\/&|]/\\&/g')
-
-    # Escape backslashes safely (can't do this with BSD sed reliably)
-    out=$(printf '%s' "$out" | awk '{gsub(/\\/, "\\\\"); print}')
-
-    printf '%s' "$out"
+    printf '%s' "$input" | perl -pe 's/([&|\\])/\\$1/g'
 }
 
     handle_existing_value() {
@@ -954,7 +947,7 @@ update_master_table() {
     print_message "blue" "Updating master table configuration..."
 
     sudo npm install -g pnpm
-    sudo pnpm i
+    pnpm i
     cd $MASTER_TABLE_FILE || {
         print_message "red" "Failed to change directory to $MASTER_TABLE_FILE"
         exit 1
