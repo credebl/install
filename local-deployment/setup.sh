@@ -1072,10 +1072,21 @@ start_services_macos() {
     echo " macOS detected — skipping auto-start"
     echo "============================================"
     echo "You can now start your services manually using pnpm."
-    echo ""
+    echo "  cd to the platform root directory and run:"
     echo "Examples:"
     echo "  pnpm run start                # API gateway"
     echo "  pnpm run start user           # User Service"
+    echo "  pnpm run start utility        # Utility Service"
+    echo "  pnpm run start connection     # Connection Service"
+    echo "  pnpm run start ledger         # Ledger Service"
+    echo "  pnpm run start organization   # Organization Service"
+    echo "  pnpm run start agent-provisioning"
+    echo "  pnpm run start agent-service"
+    echo "  pnpm run start issuance"
+    echo "  pnpm run start verification"
+    echo "  pnpm run start webhook"
+    echo "  pnpm run start geo-location"
+    echo "  pnpm run start cloud-wallet"
 }
 
 start_services() {
