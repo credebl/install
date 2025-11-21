@@ -8,7 +8,7 @@ KEYCLOAK_VERSION="25.0.6"
 TERRAFORM_DIR="../../terraform-script/keycloak/"
 DOCKER_COMPOSE_FILE="docker-compose.yml"
 ROOT_DIR="../../local-deployment/platform/"
-MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/"
+MASTER_TABLE_FILE="$PWD/platform/libs/prisma-service/prisma/data/credebl-master-table/"
 
 # Initialize logging
 exec > >(tee -a "${LOG_FILE}") 2>&1
@@ -194,11 +194,9 @@ prepare_environment_variable() {
     print_message "yellow" "Preparing environment files..."
     postgres_setup=false
     escape_sed() {
-        printf '%s' "$1" \
-            | sed -e 's/[\/&|]/\\&/g' \
-                -e ':a;N;$!ba;s/\n/\\n/g' \
-                -e 's/\\/\\\\/g'
-        }
+    input="$1"
+    printf '%s' "$input" | perl -pe 's/([&|\\])/\\$1/g'
+}
 
     handle_existing_value() {
         local var_name=$1
@@ -360,7 +358,7 @@ version: '3'
 services:
   postgres:
     container_name: credebl-postgres
-    image: postgres:latest
+    image: postgres:16
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -369,11 +367,12 @@ services:
     ports:
       - "${USED_PORT_POSTGRES}:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=credebl
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: credebl
     volumes:
       - platform-volume:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
 volumes:
   platform-volume:
 EOF
@@ -384,6 +383,52 @@ EOF
     s|^SERVER_URL=.*|SERVER_URL=http://$MACHINE_IP:${USED_PORT_SCHEMA_FILE_SERVER}|;
     " agent.env
     print_message "green" "Environment file configured successfully."
+    USE_EXISTING_KEYCLOAK_DB=false
+    CREATE_KEYCLOAK_DB=false
+    if prompt_yes_no "Do you want to use an existing PostgreSQL server for Keycloak?"; then
+        print_message "blue" "Configuring external PostgreSQL connection for Keycloak"
+        USE_EXISTING_KEYCLOAK_DB=true
+
+        handle_existing_value "KEYCLOAK_DB_HOST" "Enter Keycloak DB host"
+
+        while true; do
+            handle_existing_value "KEYCLOAK_DB_PORT" "Enter Keycloak DB port"
+            [[ $KEYCLOAK_DB_PORT =~ ^[0-9]+$ ]] && break
+            print_message "red" "Port must be a number"
+        done
+
+        handle_existing_value "KEYCLOAK_DB_USER" "Enter Keycloak DB username"
+        handle_existing_value "KEYCLOAK_DB_PASSWORD" "Enter Keycloak DB password"
+        handle_existing_value "KEYCLOAK_DB_NAME" "Enter Keycloak DB name"
+
+        print_message "green" "Existing Keycloak PostgreSQL configuration saved."
+
+    else
+        print_message "yellow" "Keycloak DB will be created in credebl-postgres."
+
+        USE_EXISTING_KEYCLOAK_DB=false
+
+        # These values will be used inside the Keycloak DB created in Docker
+        KEYCLOAK_DB_NAME="keycloak"
+        KEYCLOAK_DB_USER="postgres"
+        KEYCLOAK_DB_PASSWORD="postgres"
+        KEYCLOAK_DB_HOST="${MACHINE_IP}"
+        KEYCLOAK_DB_PORT="${USED_PORT_POSTGRES}"
+
+        # Mark that the DB must be created
+        CREATE_KEYCLOAK_DB=true
+    fi
+
+    if [ "$CREATE_KEYCLOAK_DB" = true ]; then
+    mkdir -p init-db
+
+    cat <<EOF > init-db/create_keycloak_db.sql
+CREATE DATABASE keycloak;
+EOF
+
+    print_message "green" "Keycloak database initialization SQL created."
+fi
+
 }
 
 # Check docker and node, if not available installs node
@@ -419,14 +464,15 @@ install_nodejs() {
     fi
 }
 
-install_docker() {
-    local OS_ID
+detect_os() {
     if [ -f /etc/os-release ]; then
         OS_ID=$(grep ^ID= /etc/os-release | cut -d= -f2 | tr -d '"')
     else
         OS_ID=$(uname -s)
     fi
+}
 
+install_docker() {
     case "$OS_ID" in
         "ubuntu")
             install_docker_ubuntu
@@ -531,7 +577,24 @@ install_docker_debian() {
 
 install_docker_macos() {
     print_message "blue" "Detected macOS. Checking Docker installation..."
+    if ! command -v psql >/dev/null 2>&1; then
+    echo "psql not found. Installing PostgreSQL via Homebrew..."
+
+    # Install PostgreSQL (includes psql)
+    brew install postgresql
+
+    # Add Homebrew paths (Apple Silicon + Intel support)
+    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+    echo "PostgreSQL installed. psql is now available."
+    else
+    echo "psql already installed."
+    fi
     
+    # Ensure macOS has Homebrew paths correctly set for psql and other tools
+    export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+    echo "PATH updated for Homebrew tools."
+
     if ! command_exists docker; then
         print_message "red" "Docker is not installed. Please install Docker Desktop for macOS. \
         You can refer to this URL: https://docs.docker.com/desktop/setup/install/mac-install/"
@@ -638,8 +701,37 @@ install_terraform_macos() {
 deploy_keycloak() {
     local reuse_existing=false
     local desired_port=${USED_PORT_KEYCLOAK}
+    local KC_ENV_FILE="./keycloak.env"
     print_message "purple" "Setting up Keycloak..."
 
+    cat > $KC_ENV_FILE <<EOF
+KEYCLOAK_ADMIN=admin
+KEYCLOAK_ADMIN_PASSWORD=admin
+
+KC_HTTP_ENABLED=true
+KC_DB=postgres
+KC_DB_URL=jdbc:postgresql://$KEYCLOAK_DB_HOST:$KEYCLOAK_DB_PORT/keycloak
+KC_DB_USERNAME=$KEYCLOAK_DB_USER
+KC_DB_PASSWORD=$KEYCLOAK_DB_PASSWORD
+KC_DB_URL_PORT=$KEYCLOAK_DB_PORT
+
+KC_HOSTNAME_ADMIN_URL=http://$MACHINE_IP:$USED_PORT_KEYCLOAK/
+KC_HOSTNAME_URL=http://$MACHINE_IP:$USED_PORT_KEYCLOAK/
+
+KC_PROXY=edge
+KC_HOSTNAME_STRICT=false
+KC_LOG=console
+KC_HOSTNAME_STRICT_HTTPS=false
+
+KC_HTTPS_ENABLED=false
+EOF
+
+    if [[ "${postgres_setup:-false}" == true ]]; then
+        docker compose -f "$DOCKER_COMPOSE_POSTGRES" up -d
+    fi
+    docker compose -f docker-compose.nats.yml up -d
+    docker compose -f docker-compose.redis.yml up -d
+    sleep 30
     if docker ps -a --format '{{.Names}} {{.Image}}' | grep -q "credebl-keycloak.*${KEYCLOAK_VERSION}"; then
         keycloak_container=$(docker ps -a --format '{{.Names}} {{.Image}}' | grep "credebl-keycloak.*${KEYCLOAK_VERSION}" | awk '{print $1}')
         print_message "yellow" "Found existing Keycloak container ($keycloak_container) with matching version"
@@ -690,6 +782,7 @@ deploy_keycloak() {
         docker run -d \
             -p ${desired_port}:8080 \
             --name "$container_name" \
+            --env-file $KC_ENV_FILE \
             -e KEYCLOAK_ADMIN=admin \
             -e KEYCLOAK_ADMIN_PASSWORD=admin \
             quay.io/keycloak/keycloak:${KEYCLOAK_VERSION} start-dev && \
@@ -709,12 +802,6 @@ deploy_keycloak() {
             print_message "green" "Using existing Keycloak container ($keycloak_container)"
         fi
     fi
-
-    if [[ "${postgres_setup:-false}" == true ]]; then
-        docker compose -f "$DOCKER_COMPOSE_POSTGRES" up -d
-    fi
-    docker compose -f docker-compose.nats.yml up -d
-    docker compose -f docker-compose.redis.yml up -d
 }
 
 # Step 5: Setup Keycloak using Terraform
@@ -805,7 +892,10 @@ generate_secret() {
     print_message "blue" "Generating JWT secret..."
     
     install_nodejs
-    
+    escape_for_sed_replacement() {
+    printf '%s' "$1" \
+        | sed 's/[&|]/\\&/g'
+    }
     # Extract values from .env file
     CLIENT_ID=$(grep '^KEYCLOAK_MANAGEMENT_CLIENT_ID=' .env | cut -d '=' -f2-)
     CRYPTO_PRIVATE_KEY=$(grep '^CRYPTO_PRIVATE_KEY=' .env | cut -d '=' -f2-)
@@ -825,15 +915,16 @@ generate_secret() {
         print_message "yellow" "OpenSSL too old, using deprecated key derivation."
     fi
 
-    AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
-    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY")
+    AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
 
     # Update .env file
-    sed_inplace "
-    s|^JWT_TOKEN_SECRET=.*|JWT_TOKEN_SECRET=$(escape_sed "$JWT_TOKEN_SECRET")|;
-    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID='$(escape_sed "$AES_ENCRYPTED_CLIENT_ID")'|;
-    s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET='$(escape_sed "$AES_ENCRYPTED_CLIENT_SECRET")'|;
-    " .env || {
+    sed_inplace \
+    -e "s|^JWT_TOKEN_SECRET=.*|JWT_TOKEN_SECRET=$new_secret|" \
+    -e "s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_ID='$(escape_sed "$AES_ENCRYPTED_CLIENT_ID")'|" \
+    -e "s|^CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*|CREDEBL_KEYCLOAK_MANAGEMENT_CLIENT_SECRET='$(escape_sed "$AES_ENCRYPTED_CLIENT_SECRET")'|" \
+    .env || {
         print_message "red" "Failed to update secrets in .env"
         return 1
     }
@@ -855,7 +946,7 @@ pull_credo_controller() {
 update_master_table() {
     print_message "blue" "Updating master table configuration..."
 
-    npm install -g pnpm
+    sudo npm install -g pnpm
     pnpm i
     cd $MASTER_TABLE_FILE || {
         print_message "red" "Failed to change directory to $MASTER_TABLE_FILE"
@@ -896,7 +987,7 @@ update_master_table() {
 }
 
 prisma_setup() {
-    cd ../..
+    cd ../../..
     npx prisma generate
     npx prisma migrate deploy
     npx prisma db seed
@@ -966,6 +1057,37 @@ configure_env() {
     echo "Configured .env file for local execution"
 }
 
+start_all() {
+    if [[ "$OS_ID" == "Darwin" ]]; then
+        start_services_macos
+    else
+        start_services
+    fi
+}
+
+start_services_macos() {
+    echo ""
+    echo "============================================"
+    echo " macOS detected — skipping auto-start"
+    echo "============================================"
+    echo "You can now start your services manually using pnpm."
+    echo "  cd to the platform root directory and run:"
+    echo "Examples:"
+    echo "  pnpm run start                # API gateway"
+    echo "  pnpm run start user           # User Service"
+    echo "  pnpm run start utility        # Utility Service"
+    echo "  pnpm run start connection     # Connection Service"
+    echo "  pnpm run start ledger         # Ledger Service"
+    echo "  pnpm run start organization   # Organization Service"
+    echo "  pnpm run start agent-provisioning"
+    echo "  pnpm run start agent-service"
+    echo "  pnpm run start issuance"
+    echo "  pnpm run start verification"
+    echo "  pnpm run start webhook"
+    echo "  pnpm run start geo-location"
+    echo "  pnpm run start cloud-wallet"
+}
+
 start_services() {
     configure_env
     
@@ -1010,6 +1132,7 @@ main(){
     prepare_env_file
     configure_ports
     prepare_environment_variable
+    detect_os
     install_docker
     install_terraform
     deploy_keycloak
@@ -1020,7 +1143,7 @@ main(){
     update_master_table
     prisma_setup
     setup_schema_service
-    start_services
+    start_all
 }
 
 main
