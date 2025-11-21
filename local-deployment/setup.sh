@@ -383,7 +383,8 @@ EOF
     s|^SERVER_URL=.*|SERVER_URL=http://$MACHINE_IP:${USED_PORT_SCHEMA_FILE_SERVER}|;
     " agent.env
     print_message "green" "Environment file configured successfully."
-
+    USE_EXISTING_KEYCLOAK_DB=false
+    CREATE_KEYCLOAK_DB=false
     if prompt_yes_no "Do you want to use an existing PostgreSQL server for Keycloak?"; then
         print_message "blue" "Configuring external PostgreSQL connection for Keycloak"
         USE_EXISTING_KEYCLOAK_DB=true
