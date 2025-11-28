@@ -180,14 +180,7 @@ prepare_environment_variable() {
 
     escape_sed() {
     input="$1"
-
-    # Escape sed delimiter and & so they don't break replacement
-    out=$(printf '%s' "$input" | sed 's/[\/&|]/\\&/g')
-
-    # Escape backslashes safely (can't do this with BSD sed reliably)
-    out=$(printf '%s' "$out" | awk '{gsub(/\\/, "\\\\"); print}')
-
-    printf '%s' "$out"
+    printf '%s' "$input" | perl -pe 's/([&|\\])/\\$1/g'
 }
 
     handle_existing_value() {
