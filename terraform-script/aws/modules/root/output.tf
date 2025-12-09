@@ -37,3 +37,10 @@ output "credo_port" {
 output "credo_inbound_port" {
   value = var.credo_inbound_port
 }
+
+output "platform_db" {
+  value = var.platform_db
+}
+output "aries_db" {
+  value = var.aries_db
+}

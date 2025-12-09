@@ -130,3 +130,12 @@ variable "credo_port" {
 variable "credo_inbound_port" {
   default = 9001
 }
+
+variable "aries_db" {
+  type    = string
+  default = "db.t3.medium"
+}
+variable "platform_db" {
+  type    = string
+  default = "db.t3.medium"
+}
