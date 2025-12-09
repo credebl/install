@@ -2,7 +2,7 @@ locals {
   # Filter services that need databases first
   db_services = [
     for service in var.SERVICE_CONFIG.WITH_PORT :
-    service if contains(["MEDIATOR", "CREDO", "API_GATEWAY", "KEYCLOAK"], service.SERVICE_NAME)
+    service if contains(["mediator", "credo-controller", "api-gateway", "keycloak"], service.SERVICE_NAME)
   ]
 
   # Create configurations only for filtered services
