@@ -52,6 +52,65 @@ resource "aws_security_group" "APP_SG" {
   }
 }
 
+# Security group for the database, only for services with a DB_PORT
+resource "aws_security_group" "RDS_PROXY_SG" {
+  for_each = { for s in var.SERVICE_CONFIG.WITH_PORT : s.SERVICE_NAME => s.DB_PORT if s.DB_PORT != null }
+
+  name   = "${var.project_name}_${var.environment}-${each.key}_RDS_PROXY_SG"
+  vpc_id = var.vpc_id
+
+  ingress {
+    description     = "${each.key} DB port access"
+    from_port       = each.value
+    to_port         = each.value
+    protocol        = "tcp"
+    security_groups = [aws_security_group.APP_SG[each.key].id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1" # Allow all traffic
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "${var.project_name}_${var.environment}-${each.key}_DB_SG"
+  }
+}
+
+
+# Security group for the database, only for services with a DB_PORT
+resource "aws_security_group" "DB_SG" {
+  for_each = { for s in var.SERVICE_CONFIG.WITH_PORT : s.SERVICE_NAME => s.DB_PORT if s.DB_PORT != null }
+
+  name   = "${var.project_name}_${var.environment}-${each.key}_DB_SG"
+  vpc_id = var.vpc_id
+
+  ingress {
+    description     = "${each.key} DB port access"
+    from_port       = each.value
+    to_port         = each.value
+    protocol        = "tcp"
+    security_groups = [aws_security_group.APP_SG[each.key].id]
+  }
+  # Allow access from RDS Proxy SG
+  ingress {
+    description     = "${each.key} DB port access from RDS Proxy SG"
+    from_port       = each.value
+    to_port         = each.value
+    protocol        = "tcp"
+    security_groups = [aws_security_group.RDS_PROXY_SG[each.key].id]
+  }
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1" # Allow all traffic
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  tags = {
+    Name = "${var.project_name}_${var.environment}-${each.key}_DB_SG"
+  }
+}
 
 # Define Security Group for NATS ALB with conditional count based on the environment
 resource "aws_security_group" "NATS_ALB_SG" {
