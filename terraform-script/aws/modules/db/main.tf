@@ -20,7 +20,7 @@ module "postgres_db" {
   environment             = var.environment
   vpc_id                  = var.vpc_id
   db_sg_group_id          = module.rds_subnet_group.db_sg_group_id
-  aries_db                = var.platform_db
+  aries_db                = var.aries_db
   platform_db             = var.platform_db
   region                  = var.region
   public_subnet_ids       = var.public_subnet_ids

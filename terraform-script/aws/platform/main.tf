@@ -38,7 +38,7 @@ module "security_groups" {
   SERVICE_CONFIG             = module.root.SERVICE_CONFIG
   AGENT_PROVISIONING_SERVICE = module.root.AGENT_PROVISIONING_SERVICE
   ALB_SG                     = module.root.ALB_SG
-  # depends_on                 = [module.nat_gateway, module.vpc, module.root]
+  depends_on                 = [module.nat_gateway, module.vpc, module.root]
 }
 
 module "iam" {
@@ -64,6 +64,23 @@ module "efs" {
   efs_sg_id              = module.security_groups.efs_sg_id
   private_app_subnet_ids = module.vpc.private_app_subnet_ids
   depends_on             = [module.security_groups]
+}
+
+module "db" {
+  source                  = "../modules/db"
+  environment             = module.root.environment
+  project_name            = module.root.project_name
+  vpc_id                  = module.vpc.vpc_id
+  rds_monitoring_role_arn = module.iam.rds_monitoring_role_arn
+  db_sg_ids               = module.security_groups.db_sg_ids
+  private_db_subnet_ids   = module.vpc.private_db_subnet_ids
+  SERVICE_CONFIG          = module.security_groups.SERVICE_CONFIG
+  platform_db             = module.root.platform_db
+  aries_db                = module.root.aries_db
+  region                  = module.root.region
+  public_subnet_ids       = module.vpc.public_subnet_ids
+  rds_proxy_sg_ids        = module.security_groups.rds_proxy_sg_ids
+  depends_on              = [module.security_groups]
 }
 
 module "alb" {
