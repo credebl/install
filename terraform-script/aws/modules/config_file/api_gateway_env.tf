@@ -9,10 +9,10 @@ resource "aws_s3_object" "api_gateway_env" {
     PLATFORM_NAME=${upper(var.project_name)}
     PROTOCOL=http
     TENANT_EMAIL_LOGO=credebl.jpg
-    API_ENDPOINT=${local.api_gateway_service_connect}
-    SOCKET_HOST=ws://${local.api_gateway_service_connect}
+    API_ENDPOINT=
+    SOCKET_HOST=
     NATS_URL=
-    REDIS_HOST=${local.redis_service_connect}
+    REDIS_HOST=
     REDIS_PORT=${var.REDIS_CONFIG.PORT}
     SENDGRID_API_KEY=
     FRONT_END_URL= 
@@ -43,7 +43,7 @@ resource "aws_s3_object" "api_gateway_env" {
     AWS_PUBLIC_REGION=
     AGENT_API_KEY=
 
-    FIDO_API_ENDPOINT=${local.webauthn_service_connect}
+    FIDO_API_ENDPOINT=
 
     DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_rds_proxy_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform
     POOL_DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_rds_proxy_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform?pgbouncer=true
@@ -92,7 +92,7 @@ resource "aws_s3_object" "api_gateway_env" {
     PLAY_STORE_DOWNLOAD_LINK=https://play.google.com/store/apps/details?id=id.credebl.adeya&pli=1
     IOS_DOWNLOAD_LINK=https://apps.apple.com/in/app/adeya-ssi-wallet/id6463845498
     MOBILE_APP_DOWNLOAD_URL=https://blockster.global/products/adeya
-    SCHEMA_FILE_SERVER_URL=${local.schema_file_service_connect}
+    SCHEMA_FILE_SERVER_URL=
     MAX_ORG_LIMIT=10
     SCHEMA_FILE_SERVER_TOKEN=
     GEO_LOCATION_MASTER_DATA_IMPORT_SCRIPT=/prisma/scripts/geo_location_data_import.sh

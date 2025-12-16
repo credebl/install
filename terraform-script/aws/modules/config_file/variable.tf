@@ -1,5 +1,4 @@
 variable "SERVICE_CONFIG" {}
-variable "SCHEMA_FILE_SERVICE_CONFIG" {}
 variable "AGENT_PROVISIONING_SERVICE" {}
 variable "REDIS_CONFIG" {}
 variable "environment" {}

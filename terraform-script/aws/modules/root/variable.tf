@@ -74,6 +74,21 @@ variable "SERVICE_CONFIG" {
         }
       },
       {
+        SERVICE_NAME   = "mediator"
+        PORT           = 3000
+        DB_PORT        = 5432
+        container_cmd  = ""
+        file_system_id = ""
+        health_check = {
+          path                = "/health"
+          interval            = 300
+          timeout             = 120
+          healthy_threshold   = 5
+          unhealthy_threshold = 2
+          matcher             = "200,404,201"
+        }
+      },
+      {
         SERVICE_NAME   = "ui"
         PORT           = 3000
         DB_PORT        = null

@@ -74,7 +74,7 @@ module "db" {
   rds_monitoring_role_arn = module.iam.rds_monitoring_role_arn
   db_sg_ids               = module.security_groups.db_sg_ids
   private_db_subnet_ids   = module.vpc.private_db_subnet_ids
-  SERVICE_CONFIG          = module.security_groups.SERVICE_CONFIG
+  SERVICE_CONFIG          = module.root.SERVICE_CONFIG
   platform_db             = module.root.platform_db
   aries_db                = module.root.aries_db
   region                  = module.root.region
@@ -92,7 +92,7 @@ module "alb" {
   public_subnet_ids             = module.vpc.public_subnet_ids
   nats_security_group_ids       = module.security_groups.nats_alb_security_group_ids
   alb_security_group_ids        = module.security_groups.alb_security_group_ids
-  SERVICE_CONFIG                = module.security_groups.SERVICE_CONFIG
+  SERVICE_CONFIG                = module.root.SERVICE_CONFIG
   app_security_group_ids        = module.security_groups.app_security_group_ids
   certificate_arn               = var.certificate_arn
   domain_name                   = var.domain_name
@@ -104,9 +104,8 @@ module "envfile" {
   env_file_bucket_arn        = module.s3.env_file_bucket_arn
   link_bucket_id             = module.s3.link_bucket_id
   env_file_bucket_id         = module.s3.env_file_bucket_id
-  alb_dns_by_service         = module.alb.alb_dns_by_service
-  SERVICE_CONFIG             = module.security_groups.SERVICE_CONFIG
-  SCHEMA_FILE_SERVICE_CONFIG = module.security_groups.SCHEMA_FILE_SERVICE_CONFIG
+  alb_dns_by_service         = module.alb.alb_dns
+  SERVICE_CONFIG             = module.root.SERVICE_CONFIG
   database_info_by_service   = module.db.database_info_by_service
   rds_proxy_info_by_service  = module.db.rds_proxy_info_by_service
   AWS_ACCOUNT_ID             = var.AWS_ACCOUNT_ID
@@ -117,14 +116,14 @@ module "envfile" {
   region                     = var.region
   alb_details                = module.alb.alb_details
   org_logo_bucket_dns        = module.s3.org_logo_bucket_dns
-  depends_on                 = [module.efs, module.s3, module.lambda]
+  depends_on                 = [module.efs, module.s3, module.db]
 }
 
 module "cloudwatch_group" {
   source                     = "../modules/cloudwatch"
   environment                = module.root.environment
   project_name               = module.root.project_name
-  SERVICE_CONFIG             = module.security_groups.SERVICE_CONFIG
+  SERVICE_CONFIG             = module.root.SERVICE_CONFIG
   AGENT_PROVISIONING_SERVICE = module.security_groups.AGENT_PROVISIONING_SERVICE
   REDIS_CONFIG               = module.security_groups.REDIS_CONFIG
   depends_on                 = [module.security_groups]
@@ -144,7 +143,7 @@ module "ecs" {
   log_groups_with_port                  = module.cloudwatch_group.log_groups_with_port
   log_groups_without_port               = module.cloudwatch_group.log_groups_without_port
   log_groups_nats                       = module.cloudwatch_group.log_groups_nats
-  SERVICE_CONFIG                        = module.security_groups.SERVICE_CONFIG
+  SERVICE_CONFIG                        = module.root.SERVICE_CONFIG
   app_security_group_ids                = module.security_groups.app_security_group_ids
   ecs_tasks_execution_role_arn          = module.iam.ecs_tasks_execution_role_arn
   ecs_tasks_role_arn                    = module.iam.ecs_tasks_role_arn

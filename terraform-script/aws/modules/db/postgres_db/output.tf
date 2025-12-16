@@ -1,5 +1,3 @@
-
-
 output "database_info_by_service" {
   value = {
     for db, config in aws_db_instance.rds_instance : lower(db) => {
