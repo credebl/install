@@ -1,6 +1,6 @@
 resource "aws_s3_object" "api_gateway_env" {
   bucket  = var.env_file_bucket_id
-  key     = "${var.environment}-API_GATEWAY.env"
+  key     = "${var.environment}-credebl.env"
   content = <<-EOT
     PLATFORM_PROFILE_MODE=${upper(var.environment)}
     API_GATEWAY_PROTOCOL=http

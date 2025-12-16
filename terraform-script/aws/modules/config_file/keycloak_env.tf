@@ -1,6 +1,6 @@
 resource "aws_s3_object" "keycloak_env" {
   bucket = var.env_file_bucket_id
-  key    = "${var.environment}-KEYCLOAK.env"
+  key    = "${var.environment}-keycloak.env"
   content = <<-EOT
     KEYCLOAK_ADMIN=admin
     KEYCLOAK_ADMIN_PASSWORD=admin

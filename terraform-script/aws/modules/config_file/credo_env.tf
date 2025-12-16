@@ -1,7 +1,7 @@
 
 resource "aws_s3_object" "credo_env" {
   bucket  = var.env_file_bucket_id
-  key     = "${var.environment}-CREDO.env"
+  key     = "${var.environment}-credo.env"
   content = <<-EOT
 # Specify connect timeout
 CONNECT_TIMEOUT=10

@@ -1,7 +1,7 @@
 
 resource "aws_s3_object" "mediator_env" {
   bucket = var.env_file_bucket_id
-  key    = "${var.environment}-MEDIATOR.env"
+  key    = "${var.environment}-mediator.env"
   content = <<-EOT
 POSTGRES_USER=${local.mediator_db_credentials.username}
 USE_PUSH_NOTIFICATIONS=true
