@@ -98,6 +98,27 @@ module "alb" {
   domain_name                   = var.domain_name
 }
 
+module "envfile" {
+  source                     = "../modules/config_file"
+  org_logo_bucket_id         = module.s3.org_logo_bucket_id
+  env_file_bucket_arn        = module.s3.env_file_bucket_arn
+  link_bucket_id             = module.s3.link_bucket_id
+  env_file_bucket_id         = module.s3.env_file_bucket_id
+  alb_dns_by_service         = module.alb.alb_dns_by_service
+  SERVICE_CONFIG             = module.security_groups.SERVICE_CONFIG
+  SCHEMA_FILE_SERVICE_CONFIG = module.security_groups.SCHEMA_FILE_SERVICE_CONFIG
+  database_info_by_service   = module.db.database_info_by_service
+  rds_proxy_info_by_service  = module.db.rds_proxy_info_by_service
+  AWS_ACCOUNT_ID             = var.AWS_ACCOUNT_ID
+  environment                = module.root.environment
+  project_name               = module.root.project_name
+  AGENT_PROVISIONING_SERVICE = module.security_groups.AGENT_PROVISIONING_SERVICE
+  REDIS_CONFIG               = module.security_groups.REDIS_CONFIG
+  region                     = var.region
+  alb_details                = module.alb.alb_details
+  org_logo_bucket_dns        = module.s3.org_logo_bucket_dns
+  depends_on                 = [module.efs, module.s3, module.lambda]
+}
 
 module "cloudwatch_group" {
   source                     = "../modules/cloudwatch"

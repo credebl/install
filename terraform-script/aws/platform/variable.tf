@@ -18,3 +18,5 @@ variable "private_app_subnet_cidr" {
 variable "private_db_subnet_cidr" {
   type = list(string)
 }
+
+variable "AWS_ACCOUNT_ID" {}
