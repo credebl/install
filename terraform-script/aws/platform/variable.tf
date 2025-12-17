@@ -19,4 +19,9 @@ variable "private_db_subnet_cidr" {
   type = list(string)
 }
 
+variable "extra_db_services" {
+  description = "Services for which DBs should be created even if the service is not deployed"
+  type        = list(string)
+}
+
 variable "AWS_ACCOUNT_ID" {}

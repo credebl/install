@@ -28,8 +28,10 @@ resource "aws_db_instance" "rds_instance" {
   password               = random_string.db_passwords[(each.key)].result
   db_name                = lower(replace(each.value.db_name, "-", ""))
   db_subnet_group_name   = var.db_sg_group_id
-  vpc_security_group_ids = [each.value.db_sg_id]
 
+  vpc_security_group_ids = compact([
+    each.value.db_sg_id
+  ])
   # Monitoring role and interval
   monitoring_role_arn                   = var.rds_monitoring_role_arn
   monitoring_interval                   = 1 # Set to a value greater than 0

@@ -13,3 +13,4 @@ variable "platform_db" {}
 variable "region" {}
 variable "public_subnet_ids" {}
 variable "rds_proxy_sg_ids" {}
+variable "extra_db_services" {}

@@ -25,4 +25,5 @@ module "postgres_db" {
   region                  = var.region
   public_subnet_ids       = var.public_subnet_ids
   rds_proxy_sg_ids        = var.rds_proxy_sg_ids
+  extra_db_services       = var.extra_db_services
 }

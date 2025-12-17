@@ -101,7 +101,9 @@ resource "aws_db_proxy" "rds_proxy" {
   engine_family          = "POSTGRESQL"
   role_arn               = aws_iam_role.rds_proxy_role.arn
   vpc_subnet_ids         = concat(var.private_db_subnet_ids, var.public_subnet_ids)
-  vpc_security_group_ids = [each.value.rds_proxy_sg_ids]
+  vpc_security_group_ids = compact([
+  each.value.db_sg_id
+])
   idle_client_timeout    = 300
   require_tls            = true
 
