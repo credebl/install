@@ -1,9 +1,9 @@
 module "root" {
-  source                   = "../modules/root"
-  project_name             = var.project_name
-  environment              = var.environment
-  profile                  = var.profile
-  region                   = var.region
+  source       = "../modules/root"
+  project_name = var.project_name
+  environment  = var.environment
+  profile      = var.profile
+  region       = var.region
 }
 
 module "vpc" {
@@ -45,15 +45,13 @@ module "iam" {
   source       = "../modules/iam"
   environment  = module.root.environment
   project_name = module.root.project_name
-
-
 }
+
 module "s3" {
   source             = "../modules/s3"
   environment        = module.root.environment
   project_name       = module.root.project_name
   ecs_tasks_role_arn = module.iam.ecs_tasks_execution_role_arn
-
 }
 
 module "efs" {
@@ -71,6 +69,7 @@ module "db" {
   environment             = module.root.environment
   project_name            = module.root.project_name
   vpc_id                  = module.vpc.vpc_id
+  extra_db_services       = var.extra_db_services
   rds_monitoring_role_arn = module.iam.rds_monitoring_role_arn
   db_sg_ids               = module.security_groups.db_sg_ids
   private_db_subnet_ids   = module.vpc.private_db_subnet_ids
@@ -127,7 +126,6 @@ module "cloudwatch_group" {
   AGENT_PROVISIONING_SERVICE = module.security_groups.AGENT_PROVISIONING_SERVICE
   REDIS_CONFIG               = module.security_groups.REDIS_CONFIG
   depends_on                 = [module.security_groups]
-
 }
 
 module "ecs" {
