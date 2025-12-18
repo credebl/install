@@ -6,7 +6,7 @@ resource "aws_s3_object" "keycloak_env" {
     KEYCLOAK_ADMIN_PASSWORD=admin
     KC_HTTP_ENABLED=true
     KC_DB=postgres
-    KC_DB_URL=jdbc:postgresql://${local.keycloak_rds_proxy_credentials.endpoint}:${local.keycloak_db_credentials.port}/${local.keycloak_db_credentials.db_name}
+    KC_DB_URL=jdbc:postgresql://${local.keycloak_db_credentials.endpoint}:${local.keycloak_db_credentials.port}/${local.keycloak_db_credentials.db_name}
     KC_DB_USERNAME=${local.keycloak_db_credentials.username}
     KC_DB_PASSWORD=${local.keycloak_db_credentials.password}
 

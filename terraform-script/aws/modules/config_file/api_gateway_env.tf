@@ -19,10 +19,10 @@ resource "aws_s3_object" "api_gateway_env" {
     AGENT_PROTOCOL=http
     CLUSTER_NAME=
     TASKDEFINITION_FAMILY=
-    WALLET_STORAGE_HOST=${local.api_gateway_rds_proxy_credentials.endpoint}
-    WALLET_STORAGE_PORT=${local.api_gateway_db_credentials.port}
-    WALLET_STORAGE_USER=${local.api_gateway_db_credentials.username}
-    WALLET_STORAGE_PASSWORD=${local.api_gateway_db_credentials.password}
+    WALLET_STORAGE_HOST=${local.credo_db_credentials.endpoint}
+    WALLET_STORAGE_PORT=${local.credo_db_credentials.port}
+    WALLET_STORAGE_USER=${local.credo_db_credentials.username}
+    WALLET_STORAGE_PASSWORD=${local.credo_db_credentials.password}
     AWS_ACCOUNT_ID=${var.AWS_ACCOUNT_ID}
     PLATFORM_WALLET_NAME=platform-admin
     PLATFORM_WALLET_PASSWORD=
@@ -45,8 +45,8 @@ resource "aws_s3_object" "api_gateway_env" {
 
     FIDO_API_ENDPOINT=
 
-    DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_rds_proxy_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform
-    POOL_DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_rds_proxy_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform?pgbouncer=true
+    DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_db_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform
+    POOL_DATABASE_URL=postgres://${local.api_gateway_db_credentials.username}:${local.api_gateway_db_credentials.password}@${local.api_gateway_db_credentials.endpoint}:${local.api_gateway_db_credentials.port}/platform
     PLATFORM_LOGO=CREDEBL_LOGO.svg
     POWERED_BY=Ayanworks Technologies Pvt Ltd
     PLATFORM_WEB_URL=
