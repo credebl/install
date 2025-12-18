@@ -106,7 +106,7 @@ module "envfile" {
   alb_dns_by_service         = module.alb.alb_dns
   SERVICE_CONFIG             = module.root.SERVICE_CONFIG
   database_info_by_service   = module.db.database_info_by_service
-  rds_proxy_info_by_service  = module.db.rds_proxy_info_by_service
+  # rds_proxy_info_by_service  = module.db.rds_proxy_info_by_service
   AWS_ACCOUNT_ID             = var.AWS_ACCOUNT_ID
   environment                = module.root.environment
   project_name               = module.root.project_name

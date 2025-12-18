@@ -148,9 +148,10 @@ variable "credo_inbound_port" {
 
 variable "aries_db" {
   type    = string
-  default = "db.t3.medium"
+  default = "db.t3.micro"
 }
 variable "platform_db" {
   type    = string
-  default = "db.t3.medium"
+  default = "db.t3.micro"
 }
+  

@@ -9,7 +9,7 @@ variable "link_bucket_id" {}
 variable "org_logo_bucket_id" {}
 variable "org_logo_bucket_dns" {}
 variable "database_info_by_service" {}
-variable "rds_proxy_info_by_service" {}
+# variable "rds_proxy_info_by_service" {}
 
 
 variable "alb_dns_by_service" {}
