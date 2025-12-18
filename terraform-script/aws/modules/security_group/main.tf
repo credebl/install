@@ -74,7 +74,7 @@ resource "aws_security_group" "RDS_PROXY_SG" {
     cidr_blocks = ["0.0.0.0/0"]
   }
   tags = {
-    Name = "${var.project_name}_${var.environment}-${each.key}_DB_SG"
+    Name = "${var.project_name}_${var.environment}-${each.key}_RDS_PROXY_SG"
   }
 }
 
@@ -100,6 +100,14 @@ resource "aws_security_group" "DB_SG" {
     to_port         = each.value
     protocol        = "tcp"
     security_groups = [aws_security_group.RDS_PROXY_SG[each.key].id]
+  }
+  # Allow access from RDS SG
+  ingress {
+    description     = "${each.key} DB port access from RDS SG"
+    from_port       = each.value
+    to_port         = each.value
+    protocol        = "tcp"
+    security_groups = aws_security_group.NATS_SG[*].id
   }
   egress {
     from_port   = 0
