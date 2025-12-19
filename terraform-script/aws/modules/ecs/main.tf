@@ -24,6 +24,7 @@ module "taskdenitions" {
   credo_inbound_port = var.credo_inbound_port
   credo_port = var.credo_port
   nats_efs_access_point_id = var.nats_efs_access_point_id
+  ecr_tag = var.ecr_tag
 }
 
 module "service" {

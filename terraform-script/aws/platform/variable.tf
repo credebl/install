@@ -25,3 +25,4 @@ variable "extra_db_services" {
 }
 
 variable "AWS_ACCOUNT_ID" {}
+variable "ecr_tag" {}

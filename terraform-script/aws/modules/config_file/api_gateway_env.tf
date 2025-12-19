@@ -34,10 +34,10 @@ resource "aws_s3_object" "api_gateway_env" {
     AFJ_AGENT_SPIN_UP=/agent-provisioning/AFJ/scripts/fargate.sh
     AFJ_AGENT_ENDPOINT_PATH=/agent-provisioning/AFJ/endpoints/
     PLATFORM_ID=1
-    AFJ_VERSION=public.ecr.aws/ayanworks-technologies/credebl:credo-controller
+    AFJ_VERSION=ghcr.io/credebl/credo-controller:latest
     PLATFORM_ADMIN_EMAIL=platform.admin@yopmail.com
     AFJ_AGENT_TOKEN_PATH=/agent-provisioning/AFJ/agent-config/token/
-    AFJ_IMAGE_URL=public.ecr.aws/ayanworks-technologies/credebl:credo-controller
+    AFJ_IMAGE_URL=ghcr.io/credebl/credo-controller:latest
     INBOUND_TG_ARN=
     ADMIN_TG_ARN=
     AWS_PUBLIC_REGION=

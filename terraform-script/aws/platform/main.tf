@@ -137,6 +137,7 @@ module "ecs" {
   public_subnet_ids                     = module.vpc.public_subnet_ids
   nats_efs_id                           = module.efs.nats_efs_id
   credo_efs_id                          = module.efs.credo_efs_id
+  ecr_tag                               = var.ecr_tag
   alb_security_group_ids                = module.security_groups.alb_security_group_ids
   log_groups_with_port                  = module.cloudwatch_group.log_groups_with_port
   log_groups_without_port               = module.cloudwatch_group.log_groups_without_port

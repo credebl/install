@@ -16,5 +16,5 @@ locals {
 }
 
 locals {
-  image_url  = "public.ecr.aws/ayanworks-technologies/credebl"
+  image_url  = "ghcr.io/credebl"
 }
