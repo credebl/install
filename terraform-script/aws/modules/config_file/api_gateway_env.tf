@@ -9,8 +9,8 @@ resource "aws_s3_object" "api_gateway_env" {
     PLATFORM_NAME=${upper(var.project_name)}
     PROTOCOL=http
     TENANT_EMAIL_LOGO=credebl.jpg
-    API_ENDPOINT=
-    SOCKET_HOST=
+    API_ENDPOINT=${var.environment}-api.${var.domain_name}
+    SOCKET_HOST=wss://${var.environment}-api.${var.domain_name}
     NATS_URL=
     REDIS_HOST=
     REDIS_PORT=${var.REDIS_CONFIG.PORT}
@@ -30,7 +30,7 @@ resource "aws_s3_object" "api_gateway_env" {
     S3_BUCKET_ARN=${var.env_file_bucket_arn}
     
     CRYPTO_PRIVATE_KEY=
-    PLATFORM_URL=
+    PLATFORM_URL=https://${var.environment}-api.${var.domain_name}
     AFJ_AGENT_SPIN_UP=/agent-provisioning/AFJ/scripts/fargate.sh
     AFJ_AGENT_ENDPOINT_PATH=/agent-provisioning/AFJ/endpoints/
     PLATFORM_ID=1
@@ -74,10 +74,10 @@ resource "aws_s3_object" "api_gateway_env" {
     OIDC4VC_ISSUANCE_NKEY_SEED=
     X509_NKEY_SEED=
 
-    KEYCLOAK_DOMAIN=
-    KEYCLOAK_ADMIN_URL=
+    KEYCLOAK_DOMAIN=http://${var.environment}-keycloak.${var.domain_name}/
+    KEYCLOAK_ADMIN_URL=http://${var.environment}-keycloak.${var.domain_name}
     KEYCLOAK_MASTER_REALM=master
-    KEYCLOAK_MANAGEMENT_CLIENT_ID=
+    KEYCLOAK_MANAGEMENT_CLIENT_ID=adminClient
     KEYCLOAK_MANAGEMENT_CLIENT_SECRET=
     KEYCLOAK_REALM=credebl_platform
     AWS_S3_STOREOBJECT_REGION=${var.region}
@@ -86,7 +86,7 @@ resource "aws_s3_object" "api_gateway_env" {
     DEEPLINK_DOMAIN=https://${var.link_bucket_id}?url=
     PUBLIC_PLATFORM_SUPPORT_EMAIL=support@ayanworks.com
     PUBLIC_LOCALHOST_URL=http://localhost:5000
-    PUBLIC_DEV_API_URL=
+    PUBLIC_DEV_API_URL=http://${var.environment}-api.${var.domain_name}
     MOBILE_APP_NAME=ADEYA SSI App
     MOBILE_APP=ADEYA
     PLAY_STORE_DOWNLOAD_LINK=https://play.google.com/store/apps/details?id=id.credebl.adeya&pli=1
@@ -101,7 +101,7 @@ resource "aws_s3_object" "api_gateway_env" {
     IS_ECOSYSTEM_ENABLE=
     PUBLIC_PLATFORM_LOGO=
     PUBLIC_DARK_MODE_LOGO=
-    PLATFORM_POWERED_BY=
+    PLATFORM_POWERED_BY=Ayanworks Technologies Pvt Ltd
 
     SESSIONS_LIMIT=10
     APP_PROTOCOL=https
@@ -122,5 +122,10 @@ resource "aws_s3_object" "api_gateway_env" {
     OTEL_LOGS_OTLP_ENDPOINT=
     OTEL_HEADERS_KEY=
     IS_ENABLE_OTEL=true
+
+    EMAIL_PROVIDER=resend
+    RESEND_API_KEY=
+    PRISMA_LOGS=error
+    HIDE_EXPERIMENTAL_OIDC_CONTROLLERS=false
   EOT
 }

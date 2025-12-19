@@ -16,7 +16,7 @@ variable "alb_dns_by_service" {}
 variable "env_file_bucket_id" {}
 variable "region" {}
 variable "alb_details" {}
-
+variable "domain_name" {}
 variable "AWS_ACCOUNT_ID" {}
 locals {
   services = [

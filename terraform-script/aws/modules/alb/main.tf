@@ -130,7 +130,11 @@ resource "aws_lb_listener_rule" "https_service_rules" {
 
   condition {
     host_header {
-        values = [lower("${var.environment}-${each.key}.${var.domain_name}")]
+        values = [lower(
+          each.key == "api-gateway"
+          ? "${var.environment}-api.${var.domain_name}"
+          : "${var.environment}-${each.key}.${var.domain_name}"
+      )]
     }
   }
 }
