@@ -11,7 +11,7 @@ resource "aws_ecs_task_definition" "with_port_task_definitions" {
   container_definitions = jsonencode([
     {
       name      = each.value.SERVICE_NAME
-      # image     = each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${local.image_url}:${each.value.SERVICE_NAME}"
+      # image     = each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${local.image_url}:${each.value.SERVICE_NAME}"    ## used for public ecr
       image     = each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${local.image_url}/${each.value.SERVICE_NAME}:${ecr_tag}"
       cpu       = 512
       memory    = 1024
