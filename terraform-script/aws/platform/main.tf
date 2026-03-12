@@ -154,5 +154,6 @@ module "ecs" {
   credo_port                            = module.root.credo_port
   nats_efs_access_point_id              = module.efs.nats_efs_access_point_id
   nats_tg_arns                          = module.nlb.nats_tg_arns
+  seed_sg_id                            = module.security_groups.seed_sg_id
   depends_on                            = [module.cloudwatch_group, module.iam, module.efs]
 }

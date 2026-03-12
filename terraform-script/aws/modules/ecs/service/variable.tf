@@ -32,3 +32,4 @@ variable "nats_tg_arns" {
   description = "List of NATS target group ARNs"
   type        = list(string)
 }
+variable "seed_sg_id" {}

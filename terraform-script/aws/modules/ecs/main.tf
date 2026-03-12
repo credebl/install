@@ -46,4 +46,5 @@ module "service" {
   REDIS_CONFIG                               = var.REDIS_CONFIG
   seed_task_definition_arn                   = module.taskdenitions.seed_task_definition_arn
   nats_tg_arns                               = var.nats_tg_arns
+  seed_sg_id                                 = var.seed_sg_id
 }

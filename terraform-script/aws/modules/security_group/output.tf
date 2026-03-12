@@ -47,4 +47,6 @@ output "REDIS_CONFIG" {
   value = local.REDIS_CONFIG
 }
 
-
+output "seed_sg_id" {
+  value = aws_security_group.SEED_SG.id
+}

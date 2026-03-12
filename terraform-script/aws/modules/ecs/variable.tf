@@ -36,3 +36,4 @@ variable "nats_efs_access_point_id" {}
 variable "nats_tg_arns" {
   type = list(string)
 }
+variable "seed_sg_id" {}

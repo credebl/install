@@ -179,7 +179,7 @@ resource "aws_ecs_service" "seed" {
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
-    security_groups  = [var.nats_security_group_id]
+    security_groups  = [var.seed_sg_id]
     assign_public_ip = false
   }
 }
