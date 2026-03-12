@@ -17,3 +17,4 @@ variable "public_subnet_ids" {
 variable "private_app_subnet_ids" {
   type = list(string)
 }
+variable "vpc_cidr" {}

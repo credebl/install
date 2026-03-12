@@ -6,9 +6,7 @@ variable "SERVICE_CONFIG" {}
 variable "app_security_group_ids" {
   type = map(string)
 }
-variable "nats_security_group_ids" {
- type = map(string)
-}
+variable "nats_security_group_id" {}
 
 variable "public_subnet_ids" {}
 variable "private_app_subnet_ids" {}
@@ -23,7 +21,7 @@ variable "credo_efs_id" {}
 variable "nats_efs_id" {}
 variable "AGENT_PROVISIONING_SERVICE" {}
 variable "log_groups_agent_provisioning_service" {}
-variable "nats_alb_security_group_ids" {}
+variable "nats_alb_security_group_id" {}
 variable "redis_sg_id" {}
 variable "REDIS_CONFIG" {}
 variable "target_group_arns" {}
@@ -35,3 +33,6 @@ variable "alb_details" {}
 variable "credo_port" {}
 variable "credo_inbound_port" {}
 variable "nats_efs_access_point_id" {}
+variable "nats_tg_arns" {
+  type = list(string)
+}

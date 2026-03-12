@@ -8,3 +8,7 @@ variable "AGENT_PROVISIONING_SERVICE" {}
 
 variable "credo_port" {}
 variable "credo_inbound_port" {}
+variable "natscluster" {
+  default = true
+}
+variable "vpc_cidr" {}

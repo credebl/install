@@ -1,13 +1,13 @@
 module "root" {
-  source                   = "../modules/root"
-  project_name             = var.project_name
-  environment              = var.environment
+  source       = "../modules/root"
+  project_name = var.project_name
+  environment  = var.environment
   # vpc_cidr                 = var.vpc_cidr
   # public_subnet_cidr       = var.public_subnet_cidr
   # private_app_subnet_cidr  = var.private_app_subnet_cidr
   # private_db_subnet_cidr   = var.private_db_subnet_cidr
-  profile                  = var.profile
-  region                   = var.region
+  profile = var.profile
+  region  = var.region
 }
 
 # module "vpc" {
@@ -42,6 +42,7 @@ module "security_groups" {
   SERVICE_CONFIG             = module.root.SERVICE_CONFIG
   AGENT_PROVISIONING_SERVICE = module.root.AGENT_PROVISIONING_SERVICE
   ALB_SG                     = module.root.ALB_SG
+  vpc_cidr                   = var.vpc_cidr
   # depends_on                 = [module.nat_gateway, module.vpc, module.root]
 }
 
@@ -71,20 +72,27 @@ module "efs" {
 }
 
 module "alb" {
-  source                        = "../modules/alb"
-  project_name                  = module.root.project_name
-  environment                   = module.root.environment
-  nats_alb_security_group_ids   = module.security_groups.nats_alb_security_group_ids
-  vpc_id                        = var.vpc_id
-  public_subnet_ids             = var.public_subnet_ids
-  nats_security_group_ids       = module.security_groups.nats_alb_security_group_ids
-  alb_security_group_ids        = module.security_groups.alb_security_group_ids
-  SERVICE_CONFIG                = module.security_groups.SERVICE_CONFIG
-  app_security_group_ids        = module.security_groups.app_security_group_ids
-  certificate_arn               = var.certificate_arn
-  domain_name                   = var.domain_name
+  source                     = "../modules/alb"
+  project_name               = module.root.project_name
+  environment                = module.root.environment
+  vpc_id                     = var.vpc_id
+  public_subnet_ids          = var.public_subnet_ids
+  alb_security_group_ids     = module.security_groups.alb_security_group_ids
+  SERVICE_CONFIG             = module.security_groups.SERVICE_CONFIG
+  app_security_group_ids     = module.security_groups.app_security_group_ids
+  certificate_arn            = var.certificate_arn
+  domain_name                = var.domain_name
 }
 
+module "nlb" {
+  source                = "../modules/nlb"
+  project_name          = module.root.project_name
+  environment           = module.root.environment
+  public_subnet_ids     = var.public_subnet_ids
+  vpc_id                = var.vpc_id
+  nlb_security_group_id = module.security_groups.nats_alb_security_group_id
+  depends_on            = [module.security_groups]
+}
 
 module "cloudwatch_group" {
   source                     = "../modules/cloudwatch"
@@ -102,7 +110,7 @@ module "ecs" {
   environment                           = module.root.environment
   project_name                          = module.root.project_name
   vpc_id                                = var.vpc_id
-  nats_security_group_ids               = module.security_groups.nats_security_group_ids
+  nats_security_group_id                = module.security_groups.nats_security_group_id
   public_subnet_ids                     = var.public_subnet_ids
   nats_efs_id                           = module.efs.nats_efs_id
   credo_efs_id                          = module.efs.credo_efs_id
@@ -118,15 +126,16 @@ module "ecs" {
   region                                = var.region
   AGENT_PROVISIONING_SERVICE            = module.security_groups.AGENT_PROVISIONING_SERVICE
   log_groups_agent_provisioning_service = module.cloudwatch_group.log_groups_agent_provisioning_service
-  nats_alb_security_group_ids           = module.security_groups.nats_alb_security_group_ids
+  nats_alb_security_group_id            = module.security_groups.nats_alb_security_group_id
   REDIS_CONFIG                          = module.security_groups.REDIS_CONFIG
   redis_sg_id                           = module.security_groups.redis_sg_id
   target_group_arns                     = module.alb.target_group_arns
   alb_details                           = module.alb.alb_details
   env_file_bucket_id                    = module.s3.env_file_bucket_id
   private_app_subnet_ids                = var.private_app_subnet_ids
-  depends_on                            = [module.cloudwatch_group, module.iam, module.efs]
   credo_inbound_port                    = module.root.credo_inbound_port
   credo_port                            = module.root.credo_port
   nats_efs_access_point_id              = module.efs.nats_efs_access_point_id
+  nats_tg_arns                          = module.nlb.nats_tg_arns
+  depends_on                            = [module.cloudwatch_group, module.iam, module.efs]
 }

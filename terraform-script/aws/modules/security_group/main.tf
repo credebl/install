@@ -55,14 +55,18 @@ resource "aws_security_group" "APP_SG" {
 
 # Define Security Group for NATS ALB with conditional count based on the environment
 resource "aws_security_group" "NATS_ALB_SG" {
-  count = lower(var.environment) != "prod" ? 1 : 3
-
-  name   = "${var.project_name}_${var.environment}_NATS_ALB_SG_${count.index + 1}"
+  name   = "${var.project_name}_${var.environment}_NATS_NLB_SG"
   vpc_id = var.vpc_id
 
-  # Dynamic ingress rule to allow traffic on ports 80 and 443
+  # Dynamic ingress rule to allow traffic on ports with count-based increment
   dynamic "ingress" {
-    for_each = toset([80, 443])
+    for_each = lower(var.environment) == "prod" || var.natscluster ? toset([
+      7422, 7423, 7424,
+      8442, 8443, 8444
+    ]) : toset([
+      7422, 8442
+    ])
+
     content {
       description = "Allow ALB port access"
       from_port   = ingress.value
@@ -81,7 +85,7 @@ resource "aws_security_group" "NATS_ALB_SG" {
   }
 
   tags = {
-    Name = "${var.project_name}_${var.environment}_NATS_ALB_SG_${count.index + 1}"
+    Name = "${var.project_name}_${var.environment}_NATS_ALB_SG"
   }
 }
 
@@ -89,9 +93,7 @@ resource "aws_security_group" "NATS_ALB_SG" {
 
 # Define Security Group for NATS with conditional count based on the environment
 resource "aws_security_group" "NATS_SG" {
-  count = lower(var.environment) == "dev" ? 1 : 3
-
-  name   = "${var.project_name}_${var.environment}_NATS_SG_${count.index + 1}"
+  name   = "${var.project_name}_${var.environment}_NATS_SG"
   vpc_id = var.vpc_id
 
   # Ingress rule for allowing traffic from the ALB security group
@@ -99,14 +101,23 @@ resource "aws_security_group" "NATS_SG" {
     from_port       = 0
     to_port         = 0
     protocol        = "-1" # Allow all traffic
-    security_groups = [aws_security_group.NATS_ALB_SG[count.index].id]
+    security_groups = [aws_security_group.NATS_ALB_SG.id]
   }
-  ingress {
-    from_port   = 4222
-    to_port     = 4222
-    protocol    = "tcp" # Allow all traffic
-    cidr_blocks = ["0.0.0.0/0"]
-
+    dynamic "ingress" {
+    for_each = lower(var.environment) == "prod" || var.natscluster ? toset([
+      4222, 4223, 4224,
+      8222, 8223, 8224,
+      6222, 6223, 6224,
+    ]) : toset([
+      4222, 8222, 6222
+    ])
+    content {
+      description = "Allow ALB port access"
+      from_port   = ingress.value
+      to_port     = ingress.value
+      protocol    = "tcp"
+      cidr_blocks = ["${var.vpc_cidr}"]
+    }
   }
 
   # Egress rule to allow all outbound traffic
@@ -118,7 +129,7 @@ resource "aws_security_group" "NATS_SG" {
   }
 
   tags = {
-    Name = "${var.project_name}_${var.environment}_NATS_SG_${count.index + 1}"
+    Name = "${var.project_name}_${var.environment}_NATS_SG"
   }
 }
 

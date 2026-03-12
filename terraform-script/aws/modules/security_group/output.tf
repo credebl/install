@@ -12,15 +12,13 @@ output "nats_count" {
   value = length(aws_security_group.NATS_SG)
 }
 
-output "nats_security_group_ids" {
+output "nats_security_group_id" {
   description = "Security Group IDs for NATS services"
-  value       = { for idx, sg in aws_security_group.NATS_SG : sg.name => sg.id }
-  sensitive   = true
+  value       = aws_security_group.NATS_SG.id
 }
 
-output "nats_alb_security_group_ids" {
-  value     = { for idx, sg in aws_security_group.NATS_ALB_SG : sg.name => sg.id }
-  sensitive = true
+output "nats_alb_security_group_id" {
+  value = aws_security_group.NATS_ALB_SG.id
 }
 
 output "SERVICE_CONFIG" {
