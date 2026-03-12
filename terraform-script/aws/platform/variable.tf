@@ -17,4 +17,9 @@ variable "public_subnet_ids" {
 variable "private_app_subnet_ids" {
   type = list(string)
 }
+variable "private_db_subnet_ids" {
+  type = list(string)
+}
+variable "credo_db_instance_class" {}
+variable "db_iops" {}
 variable "vpc_cidr" {}

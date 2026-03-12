@@ -39,6 +39,10 @@ output "redis_sg_id" {
   value = aws_security_group.REDIS_SG.id
 }
 
+output "rds_db_sg_id" {
+  value = aws_security_group.RDS_DB_SG.id
+}
+
 output "REDIS_CONFIG" {
   value = local.REDIS_CONFIG
 }

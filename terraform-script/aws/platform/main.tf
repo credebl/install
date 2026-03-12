@@ -72,22 +72,22 @@ module "efs" {
 }
 
 module "ecr" {
-  source = "../modules/ecr"
-  project_name           = module.root.project_name
-  environment            = module.root.environment
+  source       = "../modules/ecr"
+  project_name = module.root.project_name
+  environment  = module.root.environment
 }
 
 module "alb" {
-  source                     = "../modules/alb"
-  project_name               = module.root.project_name
-  environment                = module.root.environment
-  vpc_id                     = var.vpc_id
-  public_subnet_ids          = var.public_subnet_ids
-  alb_security_group_ids     = module.security_groups.alb_security_group_ids
-  SERVICE_CONFIG             = module.security_groups.SERVICE_CONFIG
-  app_security_group_ids     = module.security_groups.app_security_group_ids
-  certificate_arn            = var.certificate_arn
-  domain_name                = var.domain_name
+  source                 = "../modules/alb"
+  project_name           = module.root.project_name
+  environment            = module.root.environment
+  vpc_id                 = var.vpc_id
+  public_subnet_ids      = var.public_subnet_ids
+  alb_security_group_ids = module.security_groups.alb_security_group_ids
+  SERVICE_CONFIG         = module.security_groups.SERVICE_CONFIG
+  app_security_group_ids = module.security_groups.app_security_group_ids
+  certificate_arn        = var.certificate_arn
+  domain_name            = var.domain_name
 }
 
 module "nlb" {
@@ -109,6 +109,16 @@ module "cloudwatch_group" {
   REDIS_CONFIG               = module.security_groups.REDIS_CONFIG
   depends_on                 = [module.security_groups]
 
+}
+
+module "rds" {
+  source                  = "../modules/rds"
+  project_name            = var.project_name
+  environment             = var.environment
+  credo_db_instance_class = var.credo_db_instance_class
+  db_sg_id                = module.security_groups.rds_db_sg_id
+  db_subnet_ids           = var.private_db_subnet_ids
+  db_iops                 = var.db_iops
 }
 
 module "ecs" {

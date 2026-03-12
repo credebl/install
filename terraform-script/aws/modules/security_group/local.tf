@@ -11,3 +11,10 @@ locals {
 
   }
 }
+
+locals {
+  service_map = {
+    for s in var.SERVICE_CONFIG.WITH_PORT :
+    (s.SERVICE_NAME == "api-gateway" ? "platform" : s.SERVICE_NAME) => s.PORT
+  }
+}

@@ -28,9 +28,9 @@ resource "aws_security_group" "ALB_SG" {
 
 # Security group for the application, with ingress rules for each app service
 resource "aws_security_group" "APP_SG" {
-  for_each = zipmap([for s in var.SERVICE_CONFIG.WITH_PORT : s.SERVICE_NAME], [for s in var.SERVICE_CONFIG.WITH_PORT : s.PORT])
+  for_each = local.service_map
 
-  name   = upper("${var.project_name}_${var.environment}-${each.key}_APP_SG")
+  name   = upper("${var.project_name}_${var.environment}-${each.key}_SG")
   vpc_id = var.vpc_id
 
   ingress {
@@ -133,6 +133,24 @@ resource "aws_security_group" "NATS_SG" {
   }
 }
 
+resource "aws_security_group" "RDS_DB_SG" {
+  name = "${var.project_name}_${var.environment}_DB_SG"
+  vpc_id = var.vpc_id
+
+    ingress {
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    security_groups  = [aws_security_group.APP_SG["platform"].id]
+    }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+    }
+}
 
 resource "aws_security_group" "REDIS_SG" {
   name   = "${var.project_name}_${var.environment}_REDIS_SG"
@@ -143,7 +161,7 @@ resource "aws_security_group" "REDIS_SG" {
     from_port       = local.REDIS_CONFIG.PORT
     to_port         = local.REDIS_CONFIG.PORT
     protocol        = "tcp"
-    security_groups = [aws_security_group.APP_SG["api-gateway"].id]
+    security_groups = [aws_security_group.APP_SG["platform"].id]
   }
 
   egress {
@@ -197,10 +215,11 @@ resource "aws_security_group" "EFS_SG" {
     from_port   = local.EFS_PORT
     to_port     = local.EFS_PORT
     protocol    = "tcp"
-    security_groups = flatten([
-      [aws_security_group.APP_SG["api-gateway"].id],
-      lower(var.environment) != "dev" ? [for i in aws_security_group.NATS_SG : i.id] : []
-    ])
+    # security_groups = flatten([
+    #   [aws_security_group.APP_SG["api-gateway"].id],
+    #   lower(var.environment) != "dev" ? [aws_security_group.NATS_SG.id] : []
+    # ])
+    security_groups = [ aws_security_group.APP_SG["platform"].id, aws_security_group.NATS_SG.id ]
   }
   ingress {
     from_port   = 0
