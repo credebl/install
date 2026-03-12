@@ -186,7 +186,7 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
 }
 
 resource "aws_ecs_task_definition" "nats_service_task_definitions" {
-  count                    = lower(var.environment) != "prod" ? 1 : 3
+  count                    = lower(var.environment) == "prod"  || var.natscluster == true  ? 1 : 3
   family                   = upper("${var.project_name}_${var.environment}_${var.SERVICE_CONFIG.NATS.SERVICE_NAME}_${count.index+1}_TASKDEFINITION")
   network_mode             = "awsvpc"
   cpu                      = "512"

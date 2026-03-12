@@ -96,8 +96,7 @@ resource "aws_ecs_service" "withoutport_service" {
 
 # Define NATS ECS Serviceresource "aws_ecs_service" "nats_service" {
 resource "aws_ecs_service" "nats_service" {
-  count = lower(var.environment) != "prod" ? 1 : 3  # Create only 1 for dev, 3 for prod
-
+  count           = lower(var.environment) == "prod"  || var.natscluster == true  ? 1 : 3
   name            = "nats-${count.index + 1}-service"
   cluster         = aws_ecs_cluster.cluster.id  # ECS Cluster ID
   task_definition = var.nats_service_task_definitions[count.index]  # Task definition ARN from the task definition module
@@ -121,7 +120,6 @@ resource "aws_ecs_service" "nats_service" {
         discovery_name = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-${service.value}")
         client_alias {
           port = service.value
-          
         }
       }
     }

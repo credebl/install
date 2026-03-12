@@ -27,3 +27,6 @@ variable "nats_alb_security_group_ids" {}
 variable "redis_sg_id" {}
 variable "redis_server_task_definitions_arn" {}
 variable "REDIS_CONFIG" {}
+variable "natscluster" {
+  default = true
+}

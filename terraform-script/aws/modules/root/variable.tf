@@ -108,7 +108,7 @@ variable "SERVICE_CONFIG" {
 
     NATS = {
       SERVICE_NAME = "nats"
-      PORT         = [4222, 8222, 443]
+      PORT         = [4222, 6222, 8222]
     }
   }
 }
