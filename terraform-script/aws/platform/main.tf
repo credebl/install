@@ -71,6 +71,12 @@ module "efs" {
   depends_on             = [module.security_groups]
 }
 
+module "ecr" {
+  source = "../modules/ecr"
+  project_name           = module.root.project_name
+  environment            = module.root.environment
+}
+
 module "alb" {
   source                     = "../modules/alb"
   project_name               = module.root.project_name
@@ -124,6 +130,7 @@ module "ecs" {
   ecs_tasks_role_arn                    = module.iam.ecs_tasks_role_arn
   env_file_bucket_arn                   = module.s3.env_file_bucket_arn
   region                                = var.region
+  image_url                             = module.ecr.ecr_repo_url
   AGENT_PROVISIONING_SERVICE            = module.security_groups.AGENT_PROVISIONING_SERVICE
   log_groups_agent_provisioning_service = module.cloudwatch_group.log_groups_agent_provisioning_service
   nats_alb_security_group_id            = module.security_groups.nats_alb_security_group_id

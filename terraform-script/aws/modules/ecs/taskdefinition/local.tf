@@ -14,7 +14,3 @@ locals {
     NATS = var.SERVICE_CONFIG.NATS
   }
 }
-
-locals {
-  image_url  = "public.ecr.aws/ayanworks-technologies/credebl"
-}

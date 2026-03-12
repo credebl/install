@@ -18,10 +18,6 @@ variable "credo_efs_id" {}
 variable "nats_efs_id" {}
 
 variable "AGENT_PROVISIONING_SERVICE" {}
-variable "image_url" {
-  type    = string
-  default = "ghcr.io/credebl"
-}
 variable "log_groups_agent_provisioning_service" {}
 variable "REDIS_CONFIG" {}
 variable "credo_port" {}
@@ -30,3 +26,4 @@ variable "nats_efs_access_point_id" {}
 variable "natscluster" {
   default = true
 }
+variable "image_url" {}

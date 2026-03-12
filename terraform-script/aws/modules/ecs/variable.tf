@@ -25,7 +25,7 @@ variable "nats_alb_security_group_id" {}
 variable "redis_sg_id" {}
 variable "REDIS_CONFIG" {}
 variable "target_group_arns" {}
-
+variable "image_url" {}
 
 #keycloak
 variable "env_file_bucket_id" {}
