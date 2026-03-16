@@ -2,11 +2,12 @@ output "nlb_arn" {
   value = aws_lb.nlb.arn
 }
 
-output "nats_tg_arns" {
-  value = concat(
-    aws_lb_target_group.nats_websocket_tg[*].arn,
-    aws_lb_target_group.nats_leaf_connection_tg[*].arn
-  )
+output "nats_websocket_tg_arns" {
+  value = aws_lb_target_group.nats_websocket_tg[*].arn
+}
+
+output "nats_leaf_connection_tg_arns" {
+  value = aws_lb_target_group.nats_leaf_connection_tg[*].arn
 }
 
 output "nats_listener_arns" {

@@ -28,8 +28,12 @@ variable "REDIS_CONFIG" {}
 variable "natscluster" {
   default = true
 }
-variable "nats_tg_arns" {
-  description = "List of NATS target group ARNs"
+variable "nats_websocket_tg_arns" {
+  description = "List of NATS websocket target group ARNs"
+  type        = list(string)
+}
+variable "nats_leaf_connection_tg_arns" {
+  description = "List of NATS leaf connection target group ARNs"
   type        = list(string)
 }
 variable "seed_sg_id" {}

@@ -216,13 +216,37 @@ resource "aws_ecs_task_definition" "nats_service_task_definitions" {
         }
       ]
 
-      # Dynamically creating portMappings for each port in the NATS.PORT list
+      # Dynamically creating portMappings with incremented ports based on count.index
       portMappings = [
-        for port in var.SERVICE_CONFIG.NATS.PORT : {
-          containerPort = port
-          hostPort      = port
+        {
+          containerPort = 4222 + count.index
+          hostPort      = 4222 + count.index
           protocol      = "tcp",
-          name          = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-${port}-tcp")
+          name          = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-4222-tcp")
+        },
+        {
+          containerPort = 6222 + count.index
+          hostPort      = 6222 + count.index
+          protocol      = "tcp",
+          name          = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-6222-tcp")
+        },
+        {
+          containerPort = 8222 + count.index
+          hostPort      = 8222 + count.index
+          protocol      = "tcp",
+          name          = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-8222-tcp")
+        },
+        {
+          containerPort = 7422 + count.index
+          hostPort      = 7422 + count.index
+          protocol      = "tcp",
+          name          = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-7422-tcp")
+        },
+        {
+          containerPort = 8442 + count.index
+          hostPort      = 8442 + count.index
+          protocol      = "tcp",
+          name          = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index+1}-8442-tcp")
         }
       ]
 

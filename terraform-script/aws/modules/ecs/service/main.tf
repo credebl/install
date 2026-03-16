@@ -107,15 +107,15 @@ resource "aws_ecs_service" "nats_service" {
   }
 
   load_balancer {
-    target_group_arn = var.nats_tg_arns[count.index]
-    container_name   = "nats"
-    container_port   = 7422 + count.index
+    target_group_arn = var.nats_websocket_tg_arns[count.index]
+    container_name   = "${var.SERVICE_CONFIG.NATS.SERVICE_NAME}_${count.index + 1}"
+    container_port   = 8442 + count.index
   }
 
   load_balancer {
-    target_group_arn = var.nats_tg_arns[count.index]
-    container_name   = "nats"
-    container_port   = 8422 + count.index
+    target_group_arn = var.nats_leaf_connection_tg_arns[count.index]
+    container_name   = "${var.SERVICE_CONFIG.NATS.SERVICE_NAME}_${count.index + 1}"
+    container_port   = 7422 + count.index
   }
 
   service_connect_configuration {
