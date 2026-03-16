@@ -65,7 +65,7 @@ resource "aws_lb_listener" "nats_websocket_listener" {
 resource "aws_lb_listener" "nats_leaf_connection_listener" {
   count             = lower(var.environment) == "prod"  || var.natscluster == true  ? 3 : 1
   load_balancer_arn = aws_lb.nlb.arn
-  port              = 7442 + count.index
+  port              = 7422 + count.index
   protocol          = "TCP"
 
   default_action {
