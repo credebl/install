@@ -18,7 +18,7 @@ resource "aws_ecs_service" "withport_server" {
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
-    security_groups  = [lookup(var.app_security_group_ids, each.value.SERVICE_NAME, "default_sg_id")]
+    security_groups  = [var.app_security_group_ids[each.value.SERVICE_NAME == "api-gateway" ? "platform" : each.value.SERVICE_NAME]]
     assign_public_ip = false # Update based on your requirements
   }
 
@@ -54,7 +54,7 @@ resource "aws_ecs_service" "agent_provisioning_service" {
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
-    security_groups  = [lookup(var.app_security_group_ids, "api-gateway", "default_sg_id")]
+    security_groups  = [var.app_security_group_ids["platform"]]
     assign_public_ip = false
   }
 
@@ -79,7 +79,7 @@ resource "aws_ecs_service" "withoutport_service" {
 
   network_configuration {
     subnets          = var.private_app_subnet_ids
-    security_groups  = [lookup(var.app_security_group_ids, "api-gateway", "default_sg_id")]
+    security_groups  = [var.app_security_group_ids["platform"]]
     assign_public_ip = false
   }
   service_connect_configuration {

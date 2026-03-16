@@ -13,9 +13,9 @@ resource "aws_lb" "nlb" {
 }
 
 # NATS Target Groups with conditional count
-resource "aws_lb_target_group" "nats_tg" {
+resource "aws_lb_target_group" "nats_websocket_tg" {
   count       = lower(var.environment) == "prod"  || var.natscluster == true  ? 3 : 1
-  name        = "${var.environment}-${var.project_name}-nats-${count.index + 1}-tg"
+  name        = upper("${var.environment}-${var.project_name}-nats-ws-${count.index + 1}-tg")
   target_type = "ip"
   port        = 8442 + count.index
   protocol    = "TCP"
@@ -30,15 +30,46 @@ resource "aws_lb_target_group" "nats_tg" {
   }
 }
 
+# NATS Target Groups with conditional count
+resource "aws_lb_target_group" "nats_leaf_connection_tg" {
+  count       = lower(var.environment) == "prod"  || var.natscluster == true  ? 3 : 1
+  name        = upper("${var.environment}-${var.project_name}-nats-lf-${count.index + 1}-tg")
+  target_type = "ip"
+  port        = 7422 + count.index
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+
+  health_check {
+    protocol = "TCP"
+  }
+
+  tags = {
+    Name = "${var.environment}-${var.project_name}-nats-${count.index + 1}-tg"
+  }
+}
+
 # NLB Listeners with conditional count
-resource "aws_lb_listener" "nats_listener" {
+resource "aws_lb_listener" "nats_websocket_listener" {
   count             = lower(var.environment) == "prod"  || var.natscluster == true  ? 3 : 1
   load_balancer_arn = aws_lb.nlb.arn
-  port              = 7422 + count.index
+  port              = 8442 + count.index
   protocol          = "TCP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.nats_tg[count.index].arn
+    target_group_arn = aws_lb_target_group.nats_websocket_tg[count.index].arn
+  }
+}
+
+# NLB Listeners with conditional count
+resource "aws_lb_listener" "nats_leaf_connection_listener" {
+  count             = lower(var.environment) == "prod"  || var.natscluster == true  ? 3 : 1
+  load_balancer_arn = aws_lb.nlb.arn
+  port              = 7442 + count.index
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nats_leaf_connection_tg[count.index].arn
   }
 }

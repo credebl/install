@@ -14,7 +14,7 @@ variable "max_db_storage_size" {
 }
 variable "db_subnet_ids" {}
 variable "db_username" {
-  default = "postgres.platform_user"
+  default = "platform_user"
 }
 variable "db_name" {
   default = "platformdb"

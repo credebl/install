@@ -3,9 +3,15 @@ output "nlb_arn" {
 }
 
 output "nats_tg_arns" {
-  value = aws_lb_target_group.nats_tg[*].arn
+  value = concat(
+    aws_lb_target_group.nats_websocket_tg[*].arn,
+    aws_lb_target_group.nats_leaf_connection_tg[*].arn
+  )
 }
 
 output "nats_listener_arns" {
-  value = aws_lb_listener.nats_listener[*].arn
+  value = concat(
+    aws_lb_listener.nats_websocket_listener[*].arn,
+    aws_lb_listener.nats_leaf_connection_listener[*].arn
+  )
 }

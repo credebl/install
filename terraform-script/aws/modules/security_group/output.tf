@@ -5,7 +5,7 @@ output "alb_security_group_ids" {
 
 output "app_security_group_ids" {
   description = "Security Group IDs for each application"
-  value       = { for key, sg in aws_security_group.APP_SG : key => sg.id }
+  value       = { for key, sg in aws_security_group.APP_SG : (key == "api-gateway" ? "platform" : key) => sg.id }
 }
 
 output "nats_count" {
