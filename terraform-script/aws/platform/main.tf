@@ -14,17 +14,7 @@ module "vpc" {
   public_subnet_cidr      = var.public_subnet_cidr
   private_app_subnet_cidr = var.private_app_subnet_cidr
   private_db_subnet_cidr  = var.private_db_subnet_cidr
-}
-
-module "nat_gateway" {
-  source                     = "../modules/nat_gateway"
-  project_name               = module.root.project_name
-  environment                = module.root.environment
-  vpc_id                     = module.vpc.vpc_id
-  private_app_route_table_id = module.vpc.private_app_route_table_id
-  private_db_route_table_id  = module.vpc.private_db_route_table_id
-  public_subnet_ids          = module.vpc.public_subnet_ids
-  depends_on                 = [module.vpc, module.root]
+  aws_region              = var.region
 }
 
 module "security_groups" {
