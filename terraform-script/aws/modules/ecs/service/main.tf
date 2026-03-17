@@ -123,7 +123,7 @@ resource "aws_ecs_service" "nats_service" {
     namespace = aws_service_discovery_http_namespace.cluster_namespace.arn
 
     dynamic "service" {
-      for_each = toset(var.SERVICE_CONFIG.NATS.PORT) # Iterate over the ports list
+      for_each = toset([for port in var.SERVICE_CONFIG.NATS.PORT : port + count.index])
       content {
         port_name      = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index + 1}-${service.value}-tcp")
         discovery_name = lower("${var.SERVICE_CONFIG.NATS.SERVICE_NAME}-${count.index + 1}-${service.value}")
