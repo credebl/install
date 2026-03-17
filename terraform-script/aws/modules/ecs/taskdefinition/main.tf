@@ -204,7 +204,7 @@ resource "aws_ecs_task_definition" "nats_service_task_definitions" {
       essential = true
       command   = [
                 "-c",
-                "/config/nats.config"
+                "/config/nats_${count.index+1}.config"
             ]
       environmentFiles = []
 
