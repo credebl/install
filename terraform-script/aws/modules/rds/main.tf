@@ -62,7 +62,7 @@ resource "aws_db_instance" "rds_instance" {
   performance_insights_enabled          = true
   performance_insights_retention_period = 31
   skip_final_snapshot                   = false
-  final_snapshot_identifier             = "${var.project_name}-${var.environment}-snapshot"
+  final_snapshot_identifier             = "${var.project_name}-${var.environment}-snapshot-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
 
   tags = {
     Name        = "${var.project_name}-${var.environment}-db"
