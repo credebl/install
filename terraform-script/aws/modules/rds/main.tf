@@ -20,7 +20,7 @@ resource "aws_secretsmanager_secret_version" "db_password" {
   secret_string = jsonencode({
     # Master credentials
     username = var.db_username
-    password = random_string.db_passwords.result
+    password = random_string.db_passwords["master"].result
     engine   = "postgres"
     host     = aws_db_instance.rds_instance.endpoint
     port     = aws_db_instance.rds_instance.port
