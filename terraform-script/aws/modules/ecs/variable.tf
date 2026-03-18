@@ -40,21 +40,3 @@ variable "nats_leaf_connection_tg_arns" {
   type = list(string)
 }
 variable "seed_sg_id" {}
-variable "domain_name" {
-  description = "Domain name for Keycloak hostname configuration"
-  type        = string
-}
-variable "rds_endpoint" {
-  description = "RDS endpoint for database connection"
-  type        = string
-  sensitive   = true
-}
-variable "rds_port" {
-  description = "RDS port for database connection"
-  type        = number
-  sensitive   = true
-}
-variable "db_secret_arn" {
-  description = "ARN of the secret containing database credentials"
-  type        = string
-}

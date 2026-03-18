@@ -24,10 +24,7 @@ module "taskdenitions" {
   credo_port                            = var.credo_port
   nats_efs_access_point_id              = var.nats_efs_access_point_id
   image_url                             = var.image_url
-  domain_name                           = var.domain_name
-  rds_endpoint                          = var.rds_endpoint
-  rds_port                              = var.rds_port
-  db_secret_arn                         = var.db_secret_arn
+
 }
 
 module "service" {
