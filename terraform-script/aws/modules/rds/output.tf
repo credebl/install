@@ -8,20 +8,14 @@ output "secret_name" {
   description = "Name of the secret containing DB credentials"
 }
 
-# # Get password
-# aws secretsmanager get-secret-value --secret-id "project-env-credo-db-password" --query SecretString --output text | jq -r '.password'
+output "rds_endpoint" {
+  value = aws_db_instance.rds_instance.endpoint
+  description = "RDS instance endpoint"
+  sensitive = true  
+}
 
-# # Get username
-# aws secretsmanager get-secret-value --secret-id "project-env-credo-db-password" --query SecretString --output text | jq -r '.username'
-
-# # Get host/endpoint
-# aws secretsmanager get-secret-value --secret-id "project-env-credo-db-password" --query SecretString --output text | jq -r '.host'
-
-# # Get port
-# aws secretsmanager get-secret-value --secret-id "project-env-credo-db-password" --query SecretString --output text | jq -r '.port'
-
-# # Get database name
-# aws secretsmanager get-secret-value --secret-id "project-env-credo-db-password" --query SecretString --output text | jq -r '.dbname'
-
-# # Get engine
-# aws secretsmanager get-secret-value --secret-id "project-env-credo-db-password" --query SecretString --output text | jq -r '.engine'
+output "rds_port" {
+  value = aws_db_instance.rds_instance.port
+  description = "RDS instance port"
+  sensitive = true
+}

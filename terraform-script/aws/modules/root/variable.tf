@@ -96,6 +96,8 @@ variable "SERVICE_CONFIG" {
       "webhook",
       "organization",
       "connection",
+      "cloud-wallet",
+      "ecosystem",
       "issuance",
       "user",
       "notification",

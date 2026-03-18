@@ -28,15 +28,15 @@ resource "aws_secretsmanager_secret_version" "db_password" {
     
     # Keycloak database credentials
     keycloak_username = "keycloak_user"
-    keycloak_password = random_string.keycloak_db_password.result
+    keycloak_password = random_string.db_passwords["keycloak"].result
     keycloak_dbname = "keycloak"
-    keycloak_url = "postgresql://keycloak_user:${random_string.keycloak_db_password.result}@${aws_db_instance.rds_instance.endpoint}:${aws_db_instance.rds_instance.port}/keycloak"
+    keycloak_url = "postgresql://keycloak_user:${random_string.db_passwords["keycloak"].result}@${aws_db_instance.rds_instance.endpoint}:${aws_db_instance.rds_instance.port}/keycloak"
     
     # CREDEBL database credentials
     credebl_username = "credebl_user"
-    credebl_password = random_string.credebl_db_password.result
+    credebl_password = random_string.db_passwords["credebl"].result
     credebl_dbname = "credebl"
-    credebl_url = "postgresql://credebl_user:${random_string.credebl_db_password.result}@${aws_db_instance.rds_instance.endpoint}:${aws_db_instance.rds_instance.port}/credebl"
+    credebl_url = "postgresql://credebl_user:${random_string.db_passwords["credebl"].result}@${aws_db_instance.rds_instance.endpoint}:${aws_db_instance.rds_instance.port}/credebl"
   })
 }
 

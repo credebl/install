@@ -130,7 +130,7 @@ resource "aws_lb_listener_rule" "https_service_rules" {
 
   condition {
     host_header {
-        values = [lower("${var.environment}-${each.key}.${var.domain_name}")]
+        values = [lower(var.environment == "prod" ? "${each.key}.${var.domain_name}" : "${var.environment}-${each.key}.${var.domain_name}")]
     }
   }
 }
@@ -146,7 +146,7 @@ resource "aws_lb_listener_rule" "https_credo_rule" {
 
   condition {
     host_header {
-        values = [lower("${var.environment}-agent.${var.domain_name}")]
+        values = [lower(var.environment == "prod" ? "agent.${var.domain_name}" : "${var.environment}-agent.${var.domain_name}")]
     }
   }
 }
@@ -162,7 +162,7 @@ resource "aws_lb_listener_rule" "https_credo_inbound_rule" {
 
   condition {
     host_header {
-        values = [lower("${var.environment}-inbound-agent.${var.domain_name}")]
+        values = [lower(var.environment == "prod" ? "inbound-agent.${var.domain_name}" : "${var.environment}-inbound-agent.${var.domain_name}")]
     }
   }
 }

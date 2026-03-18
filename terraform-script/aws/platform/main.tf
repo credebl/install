@@ -141,5 +141,9 @@ module "ecs" {
   nats_websocket_tg_arns                = module.nlb.nats_websocket_tg_arns
   nats_leaf_connection_tg_arns          = module.nlb.nats_leaf_connection_tg_arns
   seed_sg_id                            = module.security_groups.seed_sg_id
+  domain_name                           = var.domain_name
+  rds_endpoint                          = module.rds.rds_endpoint
+  rds_port                              = module.rds.rds_port
+  db_secret_arn                         = module.rds.secret_arn
   depends_on                            = [module.cloudwatch_group, module.iam, module.efs]
 }
