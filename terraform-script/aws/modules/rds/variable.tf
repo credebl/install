@@ -14,10 +14,10 @@ variable "max_db_storage_size" {
 }
 variable "db_subnet_ids" {}
 variable "db_username" {
-  default = "platform_user"
+  default = "postgres"
 }
 variable "db_name" {
-  default = "platformdb"
+  default = "postgres"
 }
 variable "db_sg_id" {}
 variable "db_iops" {}
