@@ -24,6 +24,7 @@ module "taskdenitions" {
   credo_port                            = var.credo_port
   nats_efs_access_point_id              = var.nats_efs_access_point_id
   image_url                             = var.image_url
+  natscluster                           = var.natscluster
 
 }
 
@@ -49,4 +50,5 @@ module "service" {
   nats_websocket_tg_arns                     = var.nats_websocket_tg_arns
   nats_leaf_connection_tg_arns               = var.nats_leaf_connection_tg_arns
   seed_sg_id                                 = var.seed_sg_id
+  natscluster                                = var.natscluster
 }

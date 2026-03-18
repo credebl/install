@@ -28,6 +28,7 @@ module "security_groups" {
   AGENT_PROVISIONING_SERVICE = module.root.AGENT_PROVISIONING_SERVICE
   ALB_SG                     = module.root.ALB_SG
   vpc_cidr                   = module.vpc.vpc_cidr
+  natscluster                = var.natscluster
   # depends_on                 = [module.nat_gateway, module.vpc, module.root]
 }
 
@@ -81,6 +82,7 @@ module "nlb" {
   environment           = module.root.environment
   public_subnet_ids     = module.vpc.public_subnet_ids
   vpc_id                = module.vpc.vpc_id
+  natscluster           = var.natscluster
   nlb_security_group_id = module.security_groups.nats_alb_security_group_id
   depends_on            = [module.security_groups]
 }
@@ -115,6 +117,7 @@ module "ecs" {
   ecs_tasks_role_arn                    = module.iam.ecs_tasks_role_arn
   env_file_bucket_arn                   = module.s3.env_file_bucket_arn
   region                                = var.region
+  natscluster                           = var.natscluster
   image_url                             = module.ecr.ecr_repo_url
   AGENT_PROVISIONING_SERVICE            = module.security_groups.AGENT_PROVISIONING_SERVICE
   log_groups_agent_provisioning_service = module.cloudwatch_group.log_groups_agent_provisioning_service

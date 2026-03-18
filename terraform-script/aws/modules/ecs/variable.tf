@@ -40,3 +40,4 @@ variable "nats_leaf_connection_tg_arns" {
   type = list(string)
 }
 variable "seed_sg_id" {}
+variable "natscluster" {}

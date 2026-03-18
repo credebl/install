@@ -25,9 +25,7 @@ variable "nats_alb_security_group_id" {}
 variable "redis_sg_id" {}
 variable "redis_server_task_definitions_arn" {}
 variable "REDIS_CONFIG" {}
-variable "natscluster" {
-  default = true
-}
+variable "natscluster" {}
 variable "nats_websocket_tg_arns" {
   description = "List of NATS websocket target group ARNs"
   type        = list(string)

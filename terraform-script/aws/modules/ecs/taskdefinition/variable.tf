@@ -23,7 +23,5 @@ variable "REDIS_CONFIG" {}
 variable "credo_port" {}
 variable "credo_inbound_port" {}
 variable "nats_efs_access_point_id" {}
-variable "natscluster" {
-  default = true
-}
+variable "natscluster" {}
 variable "image_url" {}
