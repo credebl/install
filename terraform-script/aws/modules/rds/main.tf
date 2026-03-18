@@ -3,10 +3,10 @@ data "aws_rds_engine_version" "latest_postgres" {
 }
 
 resource "random_string" "db_passwords" {
-  length   = 16
-  upper    = true
-  numeric  = true
-  special  = false
+  length  = 16
+  upper   = true
+  numeric = true
+  special = false
 }
 
 # Store password in AWS Secrets Manager
@@ -15,7 +15,7 @@ resource "aws_secretsmanager_secret" "db_password" {
 }
 
 resource "aws_secretsmanager_secret_version" "db_password" {
-  secret_id     = aws_secretsmanager_secret.db_password.id
+  secret_id = aws_secretsmanager_secret.db_password.id
   secret_string = jsonencode({
     username = var.db_username
     password = random_string.db_passwords.result
@@ -38,7 +38,7 @@ resource "aws_db_subnet_group" "db_subnet_group" {
 
 resource "aws_db_instance" "rds_instance" {
   identifier            = lower("${var.project_name}-${var.environment}-db")
-  instance_class        = var.credo_db_instance_class
+  instance_class        = var.db_instance_class
   engine                = "postgres"
   engine_version        = data.aws_rds_engine_version.latest_postgres.version
   allocated_storage     = var.db_storage_size
@@ -55,7 +55,7 @@ resource "aws_db_instance" "rds_instance" {
   
   deletion_protection   = true
   maintenance_window = "sun:03:00-sun:04:00"
-  backup_window = "02:00-03:00"
+  backup_window      = "02:00-03:00"
   
   backup_retention_period               = 15
   enabled_cloudwatch_logs_exports       = ["postgresql", "upgrade"]

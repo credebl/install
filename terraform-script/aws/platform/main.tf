@@ -2,8 +2,8 @@ module "root" {
   source       = "../modules/root"
   project_name = var.project_name
   environment  = var.environment
-  profile = var.profile
-  region  = var.region
+  profile      = var.profile
+  region       = var.region
 }
 
 module "vpc" {
@@ -97,13 +97,13 @@ module "cloudwatch_group" {
 }
 
 module "rds" {
-  source                  = "../modules/rds"
-  project_name            = var.project_name
-  environment             = var.environment
-  credo_db_instance_class = var.db_instance_class
-  db_sg_id                = module.security_groups.rds_db_sg_id
-  db_subnet_ids           = module.vpc.private_db_subnet_ids
-  db_iops                 = var.db_iops
+  source            = "../modules/rds"
+  project_name      = var.project_name
+  environment       = var.environment
+  db_instance_class = var.db_instance_class
+  db_sg_id          = module.security_groups.rds_db_sg_id
+  db_subnet_ids     = module.vpc.private_db_subnet_ids
+  db_iops           = var.db_iops
 }
 
 module "ecs" {
