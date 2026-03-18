@@ -105,6 +105,7 @@ variable "SERVICE_CONFIG" {
       "geolocation",
       "agent-service",
       "oid4vc-issuance",
+      "x509",
       "oid4vp-verification"
     ]
 
