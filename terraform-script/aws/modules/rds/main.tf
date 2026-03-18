@@ -83,34 +83,3 @@ resource "aws_db_instance" "rds_instance" {
     Environment = var.environment
   }
 }
-
-# Create additional databases using null_resource and local-exec
-resource "null_resource" "create_databases" {
-  depends_on = [aws_db_instance.rds_instance]
-  
-  provisioner "local-exec" {
-    command = <<-EOT
-      export PGPASSWORD='${random_string.db_passwords["master"].result}'
-      
-      # Create databases
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d ${var.db_name} -c "CREATE DATABASE keycloak;"
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d ${var.db_name} -c "CREATE DATABASE credebl;"
-      
-      # Create users with different passwords
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d ${var.db_name} -c "CREATE USER keycloak_user WITH PASSWORD '${random_string.db_passwords["keycloak"].result}';"
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d ${var.db_name} -c "CREATE USER credebl_user WITH PASSWORD '${random_string.db_passwords["credebl"].result}';"
-      
-      # Grant privileges
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d ${var.db_name} -c "GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak_user;"
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d ${var.db_name} -c "GRANT ALL PRIVILEGES ON DATABASE credebl TO credebl_user;"
-      
-      # Grant schema privileges
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d keycloak -c "GRANT ALL ON SCHEMA public TO keycloak_user;"
-      psql -h ${aws_db_instance.rds_instance.endpoint} -U ${var.db_username} -d credebl -c "GRANT ALL ON SCHEMA public TO credebl_user;"
-    EOT
-  }
-  
-  triggers = {
-    rds_endpoint = aws_db_instance.rds_instance.endpoint
-  }
-}

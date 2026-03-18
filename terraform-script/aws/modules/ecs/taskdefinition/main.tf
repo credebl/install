@@ -25,41 +25,6 @@ resource "aws_ecs_task_definition" "with_port_task_definitions" {
         }
       ]
 
-      environment = each.value.SERVICE_NAME == "keycloak" ? [
-        {
-          name  = "KC_HOSTNAME_ADMIN_URL"
-          value = "https://${var.environment == "prod" ? "keycloak" : "${var.environment}-keycloak"}.${var.domain_name}/"
-        },
-        {
-          name  = "KC_HOSTNAME_URL"
-          value = "https://${var.environment == "prod" ? "keycloak" : "${var.environment}-keycloak"}.${var.domain_name}/"
-        },
-        {
-          name  = "KC_DB_URL"
-          value = "jdbc:postgresql://${var.rds_endpoint}:${var.rds_port}/keycloak"
-        },
-        {
-          name  = "KC_DB_USERNAME"
-          value = "keycloak_user"
-        }
-      ] : []
-
-      secrets = each.value.SERVICE_NAME == "keycloak" ? [
-        {
-          name      = "KC_DB_PASSWORD"
-          valueFrom = "${var.db_secret_arn}:keycloak_password::"
-        }
-      ] : each.value.SERVICE_NAME == "api-gateway" ? [
-        {
-          name      = "DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
-        },
-        {
-          name      = "POOL_DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
-        }
-      ] : []
-
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -110,17 +75,6 @@ resource "aws_ecs_task_definition" "without_port_task_definitions" {
         {
           value = "${var.env_file_bucket_arn}/${var.environment}-credebl.env"
           type  = "s3"
-        }
-      ]
-
-      secrets = [
-        {
-          name      = "DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
-        },
-        {
-          name      = "POOL_DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
         }
       ]
 
@@ -183,17 +137,6 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
         {
           value = "${var.env_file_bucket_arn}/${var.environment}-credebl.env"
           type  = "s3"
-        }
-      ]
-
-      secrets = [
-        {
-          name      = "DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
-        },
-        {
-          name      = "POOL_DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
         }
       ]
 
@@ -480,17 +423,6 @@ resource "aws_ecs_task_definition" "seed_taskdefinition" {
         {
           value = "${var.env_file_bucket_arn}/${var.environment}-credebl.env"
           type  = "s3"
-        }
-      ]
-
-      secrets = [
-        {
-          name      = "DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
-        },
-        {
-          name      = "POOL_DATABASE_URL"
-          valueFrom = "${var.db_secret_arn}:credebl_url::"
         }
       ]
 
