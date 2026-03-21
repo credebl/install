@@ -106,7 +106,7 @@ variable "SERVICE_CONFIG" {
       "agent-service",
       "oid4vc-issuance",
       "x509",
-      "oid4vp-verification"
+      "oid4vc-verification"
     ]
 
     NATS = {

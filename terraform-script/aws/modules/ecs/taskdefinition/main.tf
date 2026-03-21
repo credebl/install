@@ -11,7 +11,7 @@ resource "aws_ecs_task_definition" "with_port_task_definitions" {
   container_definitions = jsonencode([
     {
       name      = each.value.SERVICE_NAME
-      image     = lower(each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${var.image_url}:${each.value.SERVICE_NAME}")
+      image     = lower(each.value.SERVICE_NAME == "keycloak" ? "quay.io/keycloak/keycloak:25.0.6" : "${var.image_url}/${each.value.SERVICE_NAME}:${var.image_tag}")
       cpu       = 512
       memory    = 1024
       essential = true
@@ -66,7 +66,7 @@ resource "aws_ecs_task_definition" "without_port_task_definitions" {
   container_definitions = jsonencode([
     {
       name      = each.value
-      image     = lower("${var.image_url}:${each.value}")
+      image     = lower("${var.image_url}/${each.value}:${var.image_tag}")
       cpu       = 512
       memory    = 1024
       essential = true
@@ -128,7 +128,7 @@ resource "aws_ecs_task_definition" "agent_provisioning_service_task_definitions"
   container_definitions = jsonencode([
     {
       name      = var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME
-      image     = lower("${var.image_url}:${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}")
+      image     = lower("${var.image_url}/${var.AGENT_PROVISIONING_SERVICE.SERVICE_NAME}:${var.image_tag}")
       cpu       = 512
       memory    = 1024
       essential = true
@@ -199,7 +199,7 @@ resource "aws_ecs_task_definition" "nats_service_task_definitions" {
   container_definitions = jsonencode([
     {
       name      = "${var.SERVICE_CONFIG.NATS.SERVICE_NAME}_${count.index+1}"
-      image     = "nats:2.6.4"
+      image     = "nats:2.12.4"
       cpu       = 512
       memory    = 1024
       essential = true
@@ -342,7 +342,7 @@ resource "aws_ecs_task_definition" "credo_taskdefinition" {
   container_definitions = jsonencode([
     {
       name      = "credo"
-      image     = "${var.image_url}:credo-controller"
+      image     = "${var.image_url}/credo-controller:${var.image_tag}"
       cpu       = 1024
       memory    = 2048
       essential = true
@@ -414,7 +414,7 @@ resource "aws_ecs_task_definition" "seed_taskdefinition" {
   container_definitions = jsonencode([
     {
       name      = "seed"
-      image     = "${var.image_url}:seed"
+      image     = "${var.image_url}/seed:${var.image_tag}"
       cpu       = 256
       memory    = 512
       essential = true

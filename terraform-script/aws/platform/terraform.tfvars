@@ -14,3 +14,4 @@ private_app_subnet_cidr = ["10.0.4.0/24", "10.0.5.0/24", "10.0.6.0/24"]
 private_db_subnet_cidr  = ["10.0.7.0/24", "10.0.8.0/24", "10.0.9.0/24"]
 
 natscluster = true
+image_tag = "latest"

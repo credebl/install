@@ -23,7 +23,7 @@ module "taskdenitions" {
   credo_inbound_port                    = var.credo_inbound_port
   credo_port                            = var.credo_port
   nats_efs_access_point_id              = var.nats_efs_access_point_id
-  image_url                             = var.image_url
+  image_tag                             = var.image_tag
   natscluster                           = var.natscluster
 
 }

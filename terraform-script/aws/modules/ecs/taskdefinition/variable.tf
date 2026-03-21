@@ -24,4 +24,7 @@ variable "credo_port" {}
 variable "credo_inbound_port" {}
 variable "nats_efs_access_point_id" {}
 variable "natscluster" {}
-variable "image_url" {}
+variable "image_url" {
+  default = "ghcr.io/credebl"
+}
+variable "image_tag" {}
