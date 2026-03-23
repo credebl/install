@@ -29,3 +29,7 @@ variable "username" {
 variable "password" {
   type = string
 }
+
+variable "trust_client_role" {
+  type = string
+}
