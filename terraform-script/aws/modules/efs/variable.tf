@@ -5,3 +5,4 @@ variable "efs_sg_id" {}
 variable "vpc_id" {}
 variable "environment" {}
 variable "project_name" {}
+variable "natscluster" {}

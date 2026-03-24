@@ -18,26 +18,27 @@ resource "aws_efs_mount_target" "credo_efs_mt" {
 
 
 resource "aws_efs_file_system" "nats_efs" {
-  creation_token   = "${var.environment}-${var.project_name}-nats-efs"
+  count            = var.natscluster ? 3 : 1
+  creation_token   = "${var.environment}-${var.project_name}-nats-efs-${count.index + 1}"
   performance_mode = "generalPurpose"
   throughput_mode  = "bursting"
   encrypted        = "true"
   tags = {
-    Name = "${var.environment}-${var.project_name}-NATS-EFS"
+    Name = "${var.environment}-${var.project_name}-NATS-EFS-${count.index + 1}"
   }
 }
 
-
 resource "aws_efs_mount_target" "nats_efs_mt" {
-  count = length(var.private_app_subnet_ids)
+  count = var.natscluster ? length(var.private_app_subnet_ids) * 3 : length(var.private_app_subnet_ids)
 
-  file_system_id  = aws_efs_file_system.nats_efs.id
-  subnet_id       = var.private_app_subnet_ids[count.index]
-  security_groups = [var.efs_sg_id] # Adjust as needed
+  file_system_id  = aws_efs_file_system.nats_efs[floor(count.index / length(var.private_app_subnet_ids))].id
+  subnet_id       = var.private_app_subnet_ids[count.index % length(var.private_app_subnet_ids)]
+  security_groups = [var.efs_sg_id]
 }
-#nats access point for seed
-resource "aws_efs_access_point" "nats_access_point" {
-  file_system_id = aws_efs_file_system.nats_efs.id
+
+# Access point for seed config file
+resource "aws_efs_access_point" "seed_access_point" {
+  file_system_id = aws_efs_file_system.credo_efs.id
   root_directory {
     path = "/seed"
 
@@ -46,7 +47,6 @@ resource "aws_efs_access_point" "nats_access_point" {
       owner_uid   = 0
       permissions = "777"
     }
-
   }
   posix_user {
     gid = 0

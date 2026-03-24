@@ -22,9 +22,13 @@ variable "log_groups_agent_provisioning_service" {}
 variable "REDIS_CONFIG" {}
 variable "credo_port" {}
 variable "credo_inbound_port" {}
-variable "nats_efs_access_point_id" {}
+variable "seed_access_point" {}
 variable "natscluster" {}
 variable "image_url" {
   default = "ghcr.io/credebl"
 }
 variable "image_tag" {}
+variable "nats_efs_ids" {
+  description = "List of all NATS EFS IDs for clustering"
+  type        = list(string)
+}

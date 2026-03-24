@@ -54,6 +54,7 @@ module "efs" {
   vpc_id                 = module.vpc.vpc_id
   efs_sg_id              = module.security_groups.efs_sg_id
   private_app_subnet_ids = module.vpc.private_app_subnet_ids
+  natscluster            = var.natscluster
   depends_on             = [module.security_groups]
 }
 
@@ -100,6 +101,7 @@ module "ecs" {
   nats_security_group_id                = module.security_groups.nats_security_group_id
   public_subnet_ids                     = module.vpc.public_subnet_ids
   nats_efs_id                           = module.efs.nats_efs_id
+  nats_efs_ids                          = module.efs.nats_efs_ids
   credo_efs_id                          = module.efs.credo_efs_id
   alb_security_group_ids                = module.security_groups.alb_security_group_ids
   log_groups_with_port                  = module.cloudwatch_group.log_groups_with_port
@@ -124,7 +126,7 @@ module "ecs" {
   private_app_subnet_ids                = module.vpc.private_app_subnet_ids
   credo_inbound_port                    = module.root.credo_inbound_port
   credo_port                            = module.root.credo_port
-  nats_efs_access_point_id              = module.efs.nats_efs_access_point_id
+  seed_access_point                     = module.efs.seed_access_point_id
   nats_websocket_tg_arns                = module.nlb.nats_websocket_tg_arns
   nats_leaf_connection_tg_arns          = module.nlb.nats_leaf_connection_tg_arns
   seed_sg_id                            = module.security_groups.seed_sg_id

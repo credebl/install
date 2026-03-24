@@ -272,7 +272,7 @@ resource "aws_ecs_task_definition" "nats_service_task_definitions" {
   volume {
     name = "nats-config"
     efs_volume_configuration {
-      file_system_id = var.nats_efs_id
+      file_system_id = var.natscluster && length(var.nats_efs_ids) > count.index ? var.nats_efs_ids[count.index] : var.nats_efs_id
       root_directory = "/"
     }
   }
@@ -454,9 +454,9 @@ resource "aws_ecs_task_definition" "seed_taskdefinition" {
   volume {
     name = "seed-data"
     efs_volume_configuration {
-      file_system_id = var.nats_efs_id
+      file_system_id = var.credo_efs_id
       authorization_config {
-      access_point_id = var.nats_efs_access_point_id
+      access_point_id = var.seed_access_point
       iam             = "DISABLED"
     }
       transit_encryption = "ENABLED"

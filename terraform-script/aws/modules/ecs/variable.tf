@@ -32,7 +32,7 @@ variable "env_file_bucket_id" {}
 variable "alb_details" {}
 variable "credo_port" {}
 variable "credo_inbound_port" {}
-variable "nats_efs_access_point_id" {}
+variable "seed_access_point" {}
 variable "nats_websocket_tg_arns" {
   type = list(string)
 }
@@ -41,3 +41,7 @@ variable "nats_leaf_connection_tg_arns" {
 }
 variable "seed_sg_id" {}
 variable "natscluster" {}
+variable "nats_efs_ids" {
+  description = "List of all NATS EFS IDs for clustering"
+  type        = list(string)
+}

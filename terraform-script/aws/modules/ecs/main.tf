@@ -6,6 +6,7 @@ module "taskdenitions" {
   env_file_bucket_arn                   = var.env_file_bucket_arn
   credo_efs_id                          = var.credo_efs_id
   nats_efs_id                           = var.nats_efs_id
+  nats_efs_ids                          = var.nats_efs_ids
   environment                           = var.environment
   project_name                          = var.project_name
   log_groups_nats                       = var.log_groups_nats
@@ -22,7 +23,7 @@ module "taskdenitions" {
   REDIS_CONFIG                          = var.REDIS_CONFIG
   credo_inbound_port                    = var.credo_inbound_port
   credo_port                            = var.credo_port
-  nats_efs_access_point_id              = var.nats_efs_access_point_id
+  seed_access_point                     = var.seed_access_point
   image_tag                             = var.image_tag
   natscluster                           = var.natscluster
 
