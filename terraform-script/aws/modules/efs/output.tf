@@ -11,25 +11,23 @@ output "credo_efs_dns" {
 }
 
 output "nats_efs_id" {
-  value = aws_efs_file_system.nats_efs.id
-
+  value = aws_efs_file_system.nats_efs[0].id
+  description = "Primary NATS EFS ID"
 }
+
+output "nats_efs_ids" {
+  value = aws_efs_file_system.nats_efs[*].id
+  description = "All NATS EFS IDs for clustering"
+}
+
 output "nats_efs_arn" {
-  value = aws_efs_file_system.nats_efs.arn
+  value = aws_efs_file_system.nats_efs[0].arn
 }
 
 output "nats_efs_dns" {
-  value = aws_efs_file_system.nats_efs.dns_name
+  value = aws_efs_file_system.nats_efs[0].dns_name
 }
 
-output "schema_file_service_efs_id" {
-  value = aws_efs_file_system.schema_file_efs.id
-}
-
-output "redis_efs_id" {
-  value = aws_efs_file_system.redis_efs.id
-}
-
-output "nats_efs_access_point_arn" {
-  value = aws_efs_access_point.nats_access_point.arn
+output "seed_access_point_id" {
+  value = aws_efs_access_point.seed_access_point.id
 }

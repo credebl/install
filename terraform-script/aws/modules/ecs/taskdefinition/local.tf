@@ -14,20 +14,3 @@ locals {
     NATS = var.SERVICE_CONFIG.NATS
   }
 }
-
-locals {
-  image_url  = "public.ecr.aws/ayanworks-technologies/credebl"
-}
-
-locals {
-  SCHEMA_FILE_SERVICE_CONFIG = {
-    SERVICE_NAME   = var.SCHEMA_FILE_SERVICE_CONFIG.SERVICE_NAME
-    PORT           = var.SCHEMA_FILE_SERVICE_CONFIG.PORT
-    file_system_id = var.schema_file_service_efs_id
-    health_check   = var.SCHEMA_FILE_SERVICE_CONFIG.health_check
-  }
-}
-
-
-     
-     

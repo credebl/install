@@ -6,9 +6,7 @@ variable "SERVICE_CONFIG" {}
 variable "app_security_group_ids" {
   type = map(string)
 }
-variable "nats_security_group_ids" {
- type = map(string)
-}
+variable "nats_security_group_id" {}
 
 variable "public_subnet_ids" {}
 variable "private_app_subnet_ids" {}
@@ -19,24 +17,31 @@ variable "log_groups_nats" {}
 variable "log_groups_without_port" {}
 variable "log_groups_with_port" {}
 variable "region" {}
-variable "schema_file_service_efs_id" {}
 variable "credo_efs_id" {}
 variable "nats_efs_id" {}
-variable "schema_file_service_sg_id" {}
-variable "SCHEMA_FILE_SERVICE_CONFIG" {}
-variable "log_groups_schema_file_server" {}
 variable "AGENT_PROVISIONING_SERVICE" {}
 variable "log_groups_agent_provisioning_service" {}
-variable "schema_file_service_alb_sg_id" {}
- variable "nats_alb_security_group_ids" {}
- variable "redis_efs_id" {}
- variable "redis_sg_id" {}
- variable "REDIS_CONFIG" {}
- variable "target_group_arns" {}
- variable "nats_target_group_arns" {}
- variable "schema_file_target_group_arn" {}
+variable "nats_alb_security_group_id" {}
+variable "redis_sg_id" {}
+variable "REDIS_CONFIG" {}
+variable "target_group_arns" {}
+variable "image_tag" {}
 
-
- #keycloak
- variable "env_file_bucket_id" {}
- variable "alb_details" {}
+#keycloak
+variable "env_file_bucket_id" {}
+variable "alb_details" {}
+variable "credo_port" {}
+variable "credo_inbound_port" {}
+variable "seed_access_point" {}
+variable "nats_websocket_tg_arns" {
+  type = list(string)
+}
+variable "nats_leaf_connection_tg_arns" {
+  type = list(string)
+}
+variable "seed_sg_id" {}
+variable "natscluster" {}
+variable "nats_efs_ids" {
+  description = "List of all NATS EFS IDs for clustering"
+  type        = list(string)
+}

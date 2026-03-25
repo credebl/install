@@ -1,4 +1,5 @@
-NGOTAG/.terraform/*
-NGOTAG/.vscode/
-NGOTAG/backend reference.tf
-NGOTAG/terraform.tfvars
+terraform-script/aws/platform/.terraform/*
+terraform-script/aws/platform/.terraform*
+terraform-script/aws/platform/.vscode/
+terraform-script/aws/platform/backend reference.tf
+terraform-script/aws/platform/terraform.tfvars

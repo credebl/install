@@ -2,23 +2,7 @@
 variable "profile" {}
 variable "project_name" {}
 variable "environment" {}
-variable "crypto_private_key" {}
-# vpc credentials
 variable "region" {}
-variable "vpc_cidr" {}
-variable "public_subnet_cidr" {
-  type = list(string)
-}
-variable "private_app_subnet_cidr" {
-  type = list(string)
-}
-
-variable "private_db_subnet_cidr" {
-  type = list(string)
-}
-
-variable "SENDGRID_API_KEY" {}
-variable "AWS_ACCOUNT_ID" {}
 
 
 # Security Group
@@ -60,22 +44,22 @@ variable "SERVICE_CONFIG" {
   default = {
     WITH_PORT = [
       {
-        SERVICE_NAME   = "API_GATEWAY"
+        SERVICE_NAME   = "api-gateway"
         PORT           = 5000
         DB_PORT        = 5432
         container_cmd  = ""
         file_system_id = ""
         health_check = {
           path                = "/api"
-          interval            = 30
-          timeout             = 5
-          healthy_threshold   = 3
-          unhealthy_threshold = 2
+          interval            = 61
+          timeout             = 60
+          healthy_threshold   = 5
+          unhealthy_threshold = 3
           matcher             = "200"
         }
       },
       {
-        SERVICE_NAME   = "KEYCLOAK"
+        SERVICE_NAME   = "keycloak"
         PORT           = 8080
         DB_PORT        = 5432
         container_cmd  = "start"
@@ -90,43 +74,13 @@ variable "SERVICE_CONFIG" {
         }
       },
       {
-        SERVICE_NAME   = "MEDIATOR"
+        SERVICE_NAME   = "ui"
         PORT           = 3000
-        DB_PORT        = 5432
+        DB_PORT        = null
         container_cmd  = ""
         file_system_id = ""
         health_check = {
-          path                = "/health"
-          interval            = 300
-          timeout             = 120
-          healthy_threshold   = 5
-          unhealthy_threshold = 2
-          matcher             = "200,404,201"
-        }
-      },
-      {
-        SERVICE_NAME   = "WEB_AUTHN"
-        PORT           = 8000
-        DB_PORT        = null # Placeholder for services without DB_PORT
-        container_cmd  = ""
-        file_system_id = ""
-        health_check = {
-          path                = "/"
-          interval            = 300
-          timeout             = 120
-          healthy_threshold   = 5
-          unhealthy_threshold = 2
-          matcher             = "200,404"
-        }
-      },
-      {
-        SERVICE_NAME   = "UI"
-        PORT           = 8085
-        DB_PORT        = null # Placeholder for services without DB_PORT
-        container_cmd  = ""
-        file_system_id = ""
-        health_check = {
-          path                = "/"
+          path                = "/auth/sign-in"
           interval            = 300
           timeout             = 120
           healthy_threshold   = 5
@@ -137,55 +91,30 @@ variable "SERVICE_CONFIG" {
     ]
 
     WITHOUT_PORT = [
-      "UTILITY_SERVICE",
-      "VERIFICATION_SERVICE",
-      "WEBHOOK_SERVICE",
-      "ORGANIZATION_SERVICE",
-      "CONNECTION_SERVICE",
-      "ISSUANCE_SERVICE",
-      "USER_SERVICE",
-      "NOTIFICATION_SERVICE",
-      "LEDGER_SERVICE",
-      "GEOLOCATION_SERVICE",
-      "CLOUD_WALLET_SERVICE",
-      "AGENT_SERVICE"
+      "utility",
+      "verification",
+      "webhook",
+      "organization",
+      "connection",
+      "cloud-wallet",
+      "ecosystem",
+      "issuance",
+      "user",
+      "notification",
+      "ledger",
+      "geolocation",
+      "agent-service",
+      "oid4vc-issuance",
+      "x509",
+      "oid4vc-verification"
     ]
 
     NATS = {
-      SERVICE_NAME = "NATS"
-      PORT         = [4222, 8222, 443, 4245]
+      SERVICE_NAME = "nats"
+      PORT         = [4222, 6222, 8222, 7422, 8442]
     }
   }
 }
-
-variable "SCHEMA_FILE_SERVICE_CONFIG" {
-  type = object({
-    SERVICE_NAME = string
-    PORT         = number
-    health_check = object({
-      path                = string
-      interval            = number
-      timeout             = number
-      healthy_threshold   = number
-      unhealthy_threshold = number
-      matcher             = string # Add matcher here as well
-    })
-  })
-
-  default = {
-    SERVICE_NAME = "SCHEMA_FILE_SERVICE"
-    PORT         = 8000
-    health_check = {
-      path                = "/health"
-      interval            = 300
-      timeout             = 120
-      healthy_threshold   = 5
-      unhealthy_threshold = 2
-      matcher             = "200,404" # Ensure matcher is defined
-    }
-  }
-}
-
 
 
 variable "AGENT_PROVISIONING_SERVICE" {
@@ -194,18 +123,13 @@ variable "AGENT_PROVISIONING_SERVICE" {
   })
 
   default = {
-    SERVICE_NAME = "AGENT_PROVISIONING_SERVICE"
+    SERVICE_NAME = "agent-provisioning"
   }
 }
 
-variable "PLATFORM_WALLET_PASSWORD" {}
-variable "aries_db" {
-  type    = string
-  default = "db.t3.medium"
+variable "credo_port" {
+  default = 8001
 }
-variable "platform_db" {
-  type    = string
-  default = "db.t3.medium"
+variable "credo_inbound_port" {
+  default = 9001
 }
-
-variable "platform_seed" {}
