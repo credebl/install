@@ -13,3 +13,5 @@ redirect_url = "http://localhost:3000/*" # Add Redirect URL
 username = "admin"
 
 password = "admin"
+
+trust_client_role  = "trust-client-role"

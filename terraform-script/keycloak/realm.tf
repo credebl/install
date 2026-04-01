@@ -11,3 +11,8 @@ resource "keycloak_role" "holder_role" {
   realm_id = keycloak_realm.my_realm.id
   name     = var.realm_role
 }
+
+resource "keycloak_role" "trust_client_role" {
+  realm_id = keycloak_realm.my_realm.id
+  name     = var.trust_client_role
+}

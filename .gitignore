@@ -3,3 +3,7 @@ terraform-script/aws/platform/.terraform*
 terraform-script/aws/platform/.vscode/
 terraform-script/aws/platform/backend reference.tf
 terraform-script/aws/platform/terraform.tfvars
+
+terraform-script/keycloak/.terraform/*
+terraform-script/keycloak/.terraform*
+terraform-script/keycloak/terraform.tfstate*
