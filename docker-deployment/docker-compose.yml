@@ -178,7 +178,6 @@ services:
     volumes:
       - $PWD/apps/agent-provisioning/AFJ/agent-config:/app/agent-provisioning/AFJ/agent-config
       - /var/run/docker.sock:/var/run/docker.sock
-      - $PWD/apps/agent-provisioning/AFJ/token:/app/agent-provisioning/AFJ/token
       - $PWD/agent.env:/app/agent.env
   agent-service:
     container_name: agent-service
@@ -237,6 +236,46 @@ services:
       - nats
       - api-gateway
     image: ghcr.io/credebl/webhook:latest
+    env_file:
+      - ./.env
+  ecosystem:
+    container_name: ecosystem-service
+    depends_on:
+      - nats
+      - api-gateway
+    build:
+      context: ./  # Adjust the context path as needed
+      dockerfile: Dockerfiles/Dockerfile.ecosystem
+    env_file:
+      - ./.env
+  oid4vc-issuance:
+    container_name: oid4vc-issuance-service
+    depends_on:
+      - nats
+      - api-gateway
+    build:
+      context: ./  # Adjust the context path as needed
+      dockerfile: Dockerfiles/Dockerfile.oid4vc-issuance
+    env_file:
+      - ./.env
+  oid4vc-verification:
+    container_name: oid4vc-verification-service
+    depends_on:
+      - nats
+      - api-gateway
+    build:
+      context: ./  # Adjust the context path as needed
+      dockerfile: Dockerfiles/Dockerfile.oid4vc-verification
+    env_file:
+      - ./.env
+  x509:
+    container_name: x509-service
+    depends_on:
+      - nats
+      - api-gateway
+    build:
+      context: ./  # Adjust the context path as needed
+      dockerfile: Dockerfiles/Dockerfile.x509
     env_file:
       - ./.env
   
