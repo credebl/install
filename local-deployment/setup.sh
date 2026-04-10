@@ -892,12 +892,18 @@ update_keycloak_secret() {
         return 1
     fi
     
-    CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-    if [ -z "$CLIENT_SECRET" ]; then
+    ADMIN_CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$ADMIN_CLIENT_SECRET" ]; then
         print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
         return 1
     fi
     
+    CREDEBL_CLIENT_SECRET=$(grep CREDEBL_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$CREDEBL_CLIENT_SECRET" ]; then
+        print_message "red" "Failed to extract CREDEBL_CLIENT_SECRET from secret.env"
+        return 1
+    fi
+
     cd "${ROOT_DIR}" || {
         print_message "red" "Failed to change directory to ${ROOT_DIR}"
         exit 1
@@ -912,17 +918,29 @@ update_keycloak_secret() {
     }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET/" .env || {
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET/" .env || {
             print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
     fi
     
+    if grep -q "ADMIN_KEYCLOAK_SECRET" .env; then
+        sed_inplace "s/^ADMIN_KEYCLOAK_SECRET=.*/ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET/" .env || {
+            print_message "red" "Failed to update ADMIN_KEYCLOAK_SECRET in .env"
+            return 1
+        }
+    else
+        echo "ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET" >> .env || {
+            print_message "red" "Failed to append ADMIN_KEYCLOAK_SECRET to .env"
+            return 1
+        }
+    fi
+
     print_message "green" "Keycloak secret updated in .env successfully."
 }
 
@@ -954,7 +972,7 @@ generate_secret() {
     fi
 
     AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
-    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CREDEBL_CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
 
     # Update .env file
