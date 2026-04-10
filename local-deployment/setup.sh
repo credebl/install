@@ -99,7 +99,8 @@ PORTS_REDIS=6379
 PORTS_KEYCLOAK=8080
 PORTS_SCHEMA_FILE_SERVER=4000
 PORTS_STUDIO=3000
-
+PORT_AGENT=8001
+PORT_INBOUND_AGENT=9001
 # Function to check if port is available
 is_port_available() {
     local port=$1
@@ -156,6 +157,8 @@ configure_ports() {
     USED_PORT_KEYCLOAK=$(find_available_port "$PORTS_KEYCLOAK")
     USED_PORT_SCHEMA_FILE_SERVER=$(find_available_port "$PORTS_SCHEMA_FILE_SERVER")
     USED_PORT_STUDIO=$(find_available_port "$PORTS_STUDIO")
+    USED_PORT_AGENT=$(find_available_port "$PORT_AGENT")
+    USED_PORT_INBOUND_AGENT=$(find_available_port "$PORT_INBOUND_AGENT")
     
     echo "Assigned ports:"
     echo "PostgreSQL: $USED_PORT_POSTGRES"
@@ -164,7 +167,9 @@ configure_ports() {
     echo "Keycloak: $USED_PORT_KEYCLOAK"
     echo "Schema Server: $USED_PORT_SCHEMA_FILE_SERVER"
     echo "Studio: $USED_PORT_STUDIO"
-    
+    echo "Agent: $USED_PORT_AGENT"
+    echo "Inbound Agent: $USED_PORT_INBOUND_AGENT"
+
     update_ports_config
 }
 
@@ -259,8 +264,33 @@ prepare_environment_variable() {
     local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
     local STUDIO_URL="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
 
-    handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
-    handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
+    # Email provider configuration
+    echo -e "\n# Email Provider Configuration"
+    while true; do
+        read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+        case "$EMAIL_PROVIDER" in
+            sendgrid|resend|smtp) break ;;
+            *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+        esac
+    done
+
+    case "$EMAIL_PROVIDER" in
+        sendgrid)
+            handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            ;;
+        resend)
+            handle_existing_value "RESEND_API_KEY" "Enter Resend API key"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            ;;
+        smtp)
+            handle_existing_value "SMTP_HOST" "Enter SMTP host"
+            handle_existing_value "SMTP_PORT" "Enter SMTP port"
+            handle_existing_value "SMTP_USER" "Enter SMTP username"
+            handle_existing_value "SMTP_PASS" "Enter SMTP password"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            ;;
+    esac
 
     # Required S3 variables
     echo -e "\n# Provide S3 credentials, required for storing connection URLs"
@@ -292,7 +322,14 @@ prepare_environment_variable() {
         s|localhost|$(escape_sed "$MACHINE_IP")|g;
         s|^CREDEBL_DOMAIN=.*|CREDEBL_DOMAIN=$(escape_sed "$STUDIO_URL")|;
         s|^FRONT_END_URL=.*|FRONT_END_URL=$(escape_sed "$STUDIO_URL")|;
-        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
+        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "${SENDGRID_API_KEY:-}")|;
+        s|^RESEND_API_KEY=.*|RESEND_API_KEY=$(escape_sed "${RESEND_API_KEY:-}")|;
+        s|^SMTP_HOST=.*|SMTP_HOST=$(escape_sed "${SMTP_HOST:-}")|;
+        s|^SMTP_PORT=.*|SMTP_PORT=$(escape_sed "${SMTP_PORT:-}")|;
+        s|^SMTP_USER=.*|SMTP_USER=$(escape_sed "${SMTP_USER:-}")|;
+        s|^SMTP_PASS=.*|SMTP_PASS=$(escape_sed "${SMTP_PASS:-}")|;
+        s|^EMAIL_FROM=.*|EMAIL_FROM=$(escape_sed "${EMAIL_FROM:-}")|;
+        s|^EMAIL_PROVIDER=.*|EMAIL_PROVIDER=$(escape_sed "$EMAIL_PROVIDER")|;
         /^# Used for storing connection URL/,/^$/ {
             s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
             s|^AWS_S3_STOREOBJECT_SECRET_KEY=.*|AWS_S3_STOREOBJECT_SECRET_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_SECRET_KEY")|;
@@ -316,7 +353,8 @@ prepare_environment_variable() {
         print_message "red" "Failed to update .env file"
         exit 1
     }
-    sed_inplace "s|your-ip|$(escape_sed "$MACHINE_IP")|g" agent.env
+    sed_inplace "s|SERVER_URL=.*|SERVER_URL=http://$(escape_sed "$MACHINE_IP"):${USED_PORT_SCHEMA_FILE_SERVER}|g" agent.env
+    sed_inplace "s|AGENT_HTTP_URL=.*|AGENT_HTTP_URL=http://$(escape_sed "$MACHINE_IP"):${USED_PORT_AGENT}|g" agent.env
 
     # Postgres installation and env update regarding postgres
     USE_EXISTING_POSTGRES=false
@@ -953,8 +991,8 @@ update_master_table() {
         exit 1
     }
     
-    if [ -z "$SENDGRID_API_KEY" ] || [ -z "$EMAIL_FROM" ]; then
-        print_message "red" "SendGrid API key and sender email cannot be empty"
+    if [ -z "${SENDGRID_API_KEY}${RESEND_API_KEY}${SMTP_HOST}" ] || [ -z "$EMAIL_FROM" ]; then
+        print_message "red" "Email provider configuration and sender email cannot be empty"
         exit 1
     fi
     
@@ -973,10 +1011,27 @@ update_master_table() {
         exit 1
     }
     
-    sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
-        print_message "red" "Failed to update SendGridAgent-Provisioning-Service Microservice is listening to NATS key in master table"
-        exit 1
-    }
+    # Update master table with appropriate email provider settings
+    case "$EMAIL_PROVIDER" in
+        sendgrid)
+            sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
+                print_message "red" "Failed to update SendGrid key in master table"
+                exit 1
+            }
+            ;;
+        resend)
+            sed_inplace "s|###Sendgrid Key###|$RESEND_API_KEY|g" credebl-master-table.json || {
+                print_message "red" "Failed to update Resend key in master table"
+                exit 1
+            }
+            ;;
+        smtp)
+            sed_inplace "s|###Sendgrid Key###|smtp_configured|g" credebl-master-table.json || {
+                print_message "red" "Failed to update SMTP configuration in master table"
+                exit 1
+            }
+            ;;
+    esac
     
     sed_inplace "s|##Senders Mail ID##|$EMAIL_FROM|g" credebl-master-table.json || {
         print_message "red" "Failed to update sender email in master table"
@@ -1113,7 +1168,7 @@ start_services() {
             gnome-terminal --tab --title=\"Agent Service\" -- bash -c \"pnpm run start agent-service; exec bash\"; \
         fi; \
     done; exec bash"
-    
+
     # Start remaining services
     sleep 10
     gnome-terminal --tab --title="Issuance Service" -- bash -c "pnpm run start issuance; exec bash"
@@ -1125,6 +1180,16 @@ start_services() {
     gnome-terminal --tab --title="Geolocation Service" -- bash -c "pnpm run start geo-location; exec bash"
     sleep 10
     gnome-terminal --tab --title="Cloud Wallet Service" -- bash -c "pnpm run start cloud-wallet; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="Ecosystem Service" -- bash -c "pnpm run start ecosystem; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="Notification Service" -- bash -c "pnpm run start notification; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="OID4VC Issuance Service" -- bash -c "pnpm run start oid4vc-issuance; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="OID4VC Verification Service" -- bash -c "pnpm run start oid4vc-verification; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="x509" -- bash -c "pnpm run start x509; exec bash"
 }
 
 main(){
