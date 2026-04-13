@@ -72,6 +72,16 @@ prepare_env_file(){
     else
         print_message "green" ".env already exists. Skipping copy and checking existing values..."
     fi
+
+    if [ ! -f credebl-master-table.json ]; then
+    print_message "yellow" "Copying credebl-master-table.json file"
+    curl -L -o credebl-master-table.json https://github.com/credebl/platform/blob/main/libs/prisma-service/prisma/data/credebl-master-table/credebl-master-table.json || {
+        print_message "red" "Failed to copy credebl-master-table.json"
+        exit 1
+    }
+    else
+        print_message "green" "credebl-master-table.json already exists. Skipping copy and checking existing values..."
+    fi
 }
 
 PORTS_POSTGRES=5432
@@ -754,9 +764,15 @@ update_keycloak_secret() {
         return 1
     fi
     
-    CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-    if [ -z "$CLIENT_SECRET" ]; then
+    ADMIN_CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$ADMIN_CLIENT_SECRET" ]; then
         print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
+        return 1
+    fi
+
+    CREDEBL_CLIENT_SECRET=$(grep CREDEBL_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$CREDEBL_CLIENT_SECRET" ]; then
+        print_message "red" "Failed to extract CREDEBL_CLIENT_SECRET from secret.env"
         return 1
     fi
     
@@ -774,22 +790,35 @@ update_keycloak_secret() {
     }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET/" .env || {
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET/" .env || {
             print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
     fi
     
+    if grep -q "ADMIN_KEYCLOAK_SECRET" .env; then
+        sed_inplace "s/^ADMIN_KEYCLOAK_SECRET=.*/ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET/" .env || {
+            print_message "red" "Failed to update ADMIN_KEYCLOAK_SECRET in .env"
+            return 1
+        }
+    else
+        echo "ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET" >> .env || {
+            print_message "red" "Failed to append ADMIN_KEYCLOAK_SECRET to .env"
+            return 1
+        }
+    fi
+
     print_message "green" "Keycloak secret updated in .env successfully."
 }
 
 generate_secret() {
-    print_message "blue" "Generating JWT secret..."    
+    print_message "blue" "Generating JWT secret..."
+
     install_nodejs    
     escape_for_sed_replacement() {
     printf '%s' "$1" \
@@ -811,7 +840,7 @@ generate_secret() {
         print_message "yellow" "OpenSSL too old, using deprecated key derivation."
     fi
     AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
-    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CREDEBL_CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
 
     # Update .env file
