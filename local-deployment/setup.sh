@@ -213,7 +213,7 @@ prepare_environment_variable() {
         if [[ -n "$current_value" ]]; then
             if [[ "$var_name" =~ (PASS|KEY) ]]; then
                 # Don't show the actual value
-                if prompt_yes_no "Found existing $var_name (hidden). Continue with this value?"; then
+                if prompt_yes_no "Found existing $var_name (hidden) in .env. Continue with this value?"; then
                     printf -v "$var_name" '%s' "$current_value"
                     print_message "green" "Using existing $var_name"
                     return
@@ -222,7 +222,7 @@ prepare_environment_variable() {
                 fi
             else
                 # Safe to display non-sensitive values
-                if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
+                if prompt_yes_no "Found existing $var_name=$current_value in .env. Continue with this value?"; then
                     printf -v "$var_name" '%s' "$current_value"
                     print_message "green" "Using existing $var_name"
                     return
@@ -263,25 +263,80 @@ prepare_environment_variable() {
     local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
     local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
     local STUDIO_URL="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
+    
+    # Initialize email provider variables to prevent unbound variable errors
+    SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+    RESEND_API_KEY=${RESEND_API_KEY:-}
+    SMTP_HOST=${SMTP_HOST:-}
+    SMTP_PORT=${SMTP_PORT:-}
+    SMTP_USER=${SMTP_USER:-}
+    SMTP_PASS=${SMTP_PASS:-}
+    EMAIL_FROM=${EMAIL_FROM:-}
 
     # Email provider configuration
     echo -e "\n# Email Provider Configuration"
-    while true; do
-        read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
-        case "$EMAIL_PROVIDER" in
-            sendgrid|resend|smtp) break ;;
-            *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
-        esac
-    done
+    
+    # Check if EMAIL_PROVIDER is already set in .env
+    local current_email_provider=$(grep "^EMAIL_PROVIDER=" .env 2>/dev/null | cut -d'=' -f2-)
+    
+    if [[ -n "$current_email_provider" ]]; then
+        if prompt_yes_no "Found existing EMAIL_PROVIDER=$current_email_provider in .env. Continue with this provider?"; then
+            EMAIL_PROVIDER="$current_email_provider"
+            print_message "green" "Using existing email provider: $EMAIL_PROVIDER"
+        else
+            print_message "yellow" "Will prompt for new email provider selection"
+            while true; do
+                read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+                case "$EMAIL_PROVIDER" in
+                    sendgrid|resend|smtp) break ;;
+                    *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+                esac
+            done
+        fi
+    else
+        while true; do
+            read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+            case "$EMAIL_PROVIDER" in
+                sendgrid|resend|smtp) break ;;
+                *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+            esac
+        done
+    fi
 
     case "$EMAIL_PROVIDER" in
         sendgrid)
             handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
             handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment SendGrid variables and comment others
+            sed_inplace "
+                s|^# SENDGRID_API_KEY=|SENDGRID_API_KEY=|;
+                s|^RESEND_API_KEY=|#RESEND_API_KEY=|;
+                s|^SMTP_HOST=|#SMTP_HOST=|;
+                s|^SMTP_PORT=|#SMTP_PORT=|;
+                s|^SMTP_USER=|#SMTP_USER=|;
+                s|^SMTP_PASS=|#SMTP_PASS=|;
+            " .env
             ;;
         resend)
             handle_existing_value "RESEND_API_KEY" "Enter Resend API key"
             handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment Resend variables and comment others
+            sed_inplace "
+                s|^SENDGRID_API_KEY=|#SENDGRID_API_KEY=|;
+                s|^#RESEND_API_KEY=|RESEND_API_KEY=|;
+                s|^SMTP_HOST=|#SMTP_HOST=|;
+                s|^SMTP_PORT=|#SMTP_PORT=|;
+                s|^SMTP_USER=|#SMTP_USER=|;
+                s|^SMTP_PASS=|#SMTP_PASS=|;
+            " .env
             ;;
         smtp)
             handle_existing_value "SMTP_HOST" "Enter SMTP host"
@@ -289,12 +344,25 @@ prepare_environment_variable() {
             handle_existing_value "SMTP_USER" "Enter SMTP username"
             handle_existing_value "SMTP_PASS" "Enter SMTP password"
             handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment SMTP variables and comment others
+            sed_inplace "
+                s|^SENDGRID_API_KEY=|#SENDGRID_API_KEY=|;
+                s|^RESEND_API_KEY=|#RESEND_API_KEY=|;
+                s|^# SMTP_HOST=|SMTP_HOST=|;
+                s|^# SMTP_PORT=|SMTP_PORT=|;
+                s|^# SMTP_USER=|SMTP_USER=|;
+                s|^# SMTP_PASS=|SMTP_PASS=|;
+            " .env
             ;;
     esac
 
     # Required S3 variables
     handle_existing_value "ADMIN_USER_PASSWORD" "Enter Password for Admin User"
-
+    
     echo -e "\n# Provide S3 credentials, required for storing connection URLs"
     handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
     handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
@@ -473,35 +541,127 @@ fi
 
 # Check docker and node, if not available installs node
 install_nodejs() {
-    # Check and install Node.js if needed
-    if ! command_exists -v node &> /dev/null; then
-        print_message "yellow" "Node.js not found. Installing..."
+    print_message "blue" "Checking Node.js installation..."
+    
+    # Check if Node.js is already installed
+    if command_exists node && command_exists npm; then
+        local node_version=$(node --version 2>/dev/null || echo "unknown")
+        local npm_version=$(npm --version 2>/dev/null || echo "unknown")
+        print_message "green" "Node.js $node_version and npm $npm_version already installed"
         
-        if [[ "$OS_ID" == "ubuntu" || "$OS_ID" == "debian" ]]; then
-            # Linux installation
-            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-            sudo apt-get install -y nodejs || {
-                print_message "red" "Failed to install Node.js"
+        # Check if pnpm is installed, install if not
+        if ! command_exists pnpm; then
+            print_message "yellow" "Installing pnpm..."
+            sudo npm install -g pnpm || {
+                print_message "red" "Failed to install pnpm"
                 exit 1
             }
-        elif [[ "$OS_ID" == "Darwin" ]]; then
-            # macOS installation
-            if ! command_exists -v brew &> /dev/null; then
-                print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
-                exit 1
-            fi
-            brew install node || {
-                print_message "red" "Failed to install Node.js"
-                exit 1
-            }
+            print_message "green" "pnpm installed successfully"
         else
-            print_message "red" "Unsupported OS for Node.js installation"
-            exit 1
+            print_message "green" "pnpm already installed"
         fi
-        print_message "green" "Node.js installed successfully"
-    else
-        print_message "green" "Node.js already installed"
+        return 0
     fi
+    
+    print_message "yellow" "Node.js not found. Installing..."
+    
+    # Ensure OS is detected
+    if [ -z "$OS_ID" ]; then
+        detect_os
+    fi
+    
+    case "$OS_ID" in
+        "ubuntu"|"debian")
+            install_nodejs_linux
+            ;;
+        "Darwin")
+            install_nodejs_macos
+            ;;
+        *)
+            print_message "red" "Unsupported OS for Node.js installation: $OS_ID"
+            exit 1
+            ;;
+    esac
+    
+    # Verify installation
+    if command_exists node && command_exists npm; then
+        local node_version=$(node --version)
+        local npm_version=$(npm --version)
+        print_message "green" "Node.js $node_version and npm $npm_version installed successfully"
+        
+        # Install pnpm globally
+        print_message "yellow" "Installing pnpm..."
+        sudo npm install -g pnpm || {
+            print_message "red" "Failed to install pnpm"
+            exit 1
+        }
+        print_message "green" "pnpm installed successfully"
+    else
+        print_message "red" "Node.js installation verification failed"
+        exit 1
+    fi
+}
+
+install_nodejs_linux() {
+    print_message "yellow" "Installing Node.js on Linux..."
+    
+    # Update package list
+    sudo apt-get update || {
+        print_message "red" "Failed to update package list"
+        exit 1
+    }
+    
+    # Install prerequisites including PostgreSQL client
+    sudo apt-get install -y ca-certificates curl gnupg postgresql-client-common postgresql-client-16|| {
+        print_message "red" "Failed to install prerequisites"
+        exit 1
+    }
+    
+    # Add NodeSource repository
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - || {
+        print_message "red" "Failed to add NodeSource repository"
+        exit 1
+    }
+    
+    # Install Node.js
+    sudo apt-get install -y nodejs || {
+        print_message "red" "Failed to install Node.js"
+        exit 1
+    }
+    
+    print_message "green" "Node.js and PostgreSQL client installed successfully on Linux"
+}
+
+install_nodejs_macos() {
+    print_message "yellow" "Installing Node.js on macOS..."
+    
+    # Check if Homebrew is installed
+    if ! command_exists brew; then
+        print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
+        exit 1
+    fi
+    
+    # Update Homebrew
+    brew update || {
+        print_message "yellow" "Failed to update Homebrew, continuing..."
+    }
+    
+    # Install Node.js
+    brew install node || {
+        print_message "red" "Failed to install Node.js via Homebrew"
+        exit 1
+    }
+    
+    # Install PostgreSQL client if not already installed
+    if ! command_exists psql; then
+        print_message "yellow" "Installing PostgreSQL client..."
+        brew install postgresql || {
+            print_message "red" "Failed to install PostgreSQL client via Homebrew"
+            exit 1
+        }
+    fi
+    
+    print_message "green" "Node.js and PostgreSQL client installed successfully on macOS"
 }
 
 detect_os() {
@@ -949,7 +1109,6 @@ update_keycloak_secret() {
 generate_secret() {
     print_message "blue" "Generating JWT secret..."
     
-    install_nodejs
     escape_for_sed_replacement() {
     printf '%s' "$1" \
         | sed 's/[&|]/\\&/g'
@@ -1005,7 +1164,6 @@ pull_credo_controller() {
 update_master_table() {
     print_message "blue" "Updating master table configuration..."
 
-    sudo npm install -g pnpm
     pnpm i
     cd $MASTER_TABLE_FILE || {
         print_message "red" "Failed to change directory to $MASTER_TABLE_FILE"
