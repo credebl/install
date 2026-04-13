@@ -290,6 +290,8 @@ prepare_environment_variable() {
     esac
 
     # Required S3 variables
+    handle_existing_value "ADMIN_USER_PASSWORD" "Enter Password for Admin User"
+
     echo -e "\n# Provide S3 credentials, required for storing connection URLs"
     handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
     handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
@@ -842,6 +844,7 @@ generate_secret() {
     AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CREDEBL_CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
+    ADMIN_PASSWORD=$(echo -n "$ADMIN_USER_PASSWORD" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
 
     # Update .env file
     sed_inplace \
@@ -915,6 +918,11 @@ update_master_table() {
     
     sed_inplace "s|##Senders Mail ID##|$EMAIL_FROM|g" credebl-master-table.json || {
         print_message "red" "Failed to update sender email in master table"
+        exit 1
+    }
+
+    sed_inplace "s|##Please provide encrypted password using crypto-js##|$ADMIN_PASSWORD|g" credebl-master-table.json || {
+        print_message "red" "Failed to update email provider in master table"
         exit 1
     }
     
