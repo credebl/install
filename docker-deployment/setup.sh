@@ -73,9 +73,19 @@ prepare_env_file(){
         print_message "green" ".env already exists. Skipping copy and checking existing values..."
     fi
 
+    if [ ! -f agent.env ]; then
+    print_message "yellow" "Copying agent env file"
+    curl -L -o agent.env https://raw.githubusercontent.com/credebl/platform/refs/heads/main/agent.env || {
+        print_message "red" "Failed to copy agent.env"
+        exit 1
+    }
+    else
+        print_message "green" "agent.env already exists. Skipping copy and checking existing values..."
+    fi
+
     if [ ! -f credebl-master-table.json ]; then
     print_message "yellow" "Copying credebl-master-table.json file"
-    curl -L -o credebl-master-table.json https://github.com/credebl/platform/blob/main/libs/prisma-service/prisma/data/credebl-master-table/credebl-master-table.json || {
+    curl -L -o credebl-master-table.json https://raw.githubusercontent.com/credebl/platform/refs/heads/main/libs/prisma-service/prisma/data/credebl-master-table/credebl-master-table.json || {
         print_message "red" "Failed to copy credebl-master-table.json"
         exit 1
     }
