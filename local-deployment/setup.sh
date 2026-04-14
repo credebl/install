@@ -65,18 +65,62 @@ prompt_yes_no() {
 clone_platform(){
     print_message "blue" "\n Setting up CREDEBL Platform..."
     
-    read -p "Provide branch name you want to work on: " BRANCH
-    echo "You entered branch: $BRANCH"
+    # Ask user for deployment type
+    while true; do
+        read -p "Do you want to deploy CREDEBL using a tag or branch? (tag/branch): " DEPLOY_TYPE
+        case "$DEPLOY_TYPE" in
+            tag|branch) break ;;
+            *) echo "Please enter only 'tag' or 'branch'." ;;
+        esac
+    done
+    
+    if [ "$DEPLOY_TYPE" = "tag" ]; then
+        read -p "Enter the tag name you want to deploy: " TAG_NAME
+        echo "You entered tag: $TAG_NAME"
+        CHECKOUT_REF="$TAG_NAME"
+    else
+        read -p "Enter the branch name you want to work on: " BRANCH_NAME
+        echo "You entered branch: $BRANCH_NAME"
+        CHECKOUT_REF="$BRANCH_NAME"
+    fi
 
     if [ -d "platform" ]; then
-        print_message "yellow" "Platform directory exists, pulling latest changes..."
-        cd platform && git fetch origin && git checkout $BRANCH && git pull origin $BRANCH
+        print_message "yellow" "Platform directory exists, updating..."
+        cd platform && git fetch origin
+        
+        if [ "$DEPLOY_TYPE" = "tag" ]; then
+            git checkout "$TAG_NAME" || {
+                print_message "red" "Failed to checkout tag $TAG_NAME"
+                exit 1
+            }
+            print_message "green" "Checked out tag: $TAG_NAME"
+        else
+            git checkout "$BRANCH_NAME" && git pull origin "$BRANCH_NAME" || {
+                print_message "red" "Failed to checkout/pull branch $BRANCH_NAME"
+                exit 1
+            }
+            print_message "green" "Updated branch: $BRANCH_NAME"
+        fi
     else
         git clone -b main https://github.com/credebl/platform.git || {
-            print_message "red" "Failed to clone Studio repository"
+            print_message "red" "Failed to clone platform repository"
             exit 1
         }
-        cd platform && git checkout $BRANCH && git pull origin $BRANCH
+        cd platform
+        
+        if [ "$DEPLOY_TYPE" = "tag" ]; then
+            git checkout "$TAG_NAME" || {
+                print_message "red" "Failed to checkout tag $TAG_NAME"
+                exit 1
+            }
+            print_message "green" "Checked out tag: $TAG_NAME"
+        else
+            git checkout "$BRANCH_NAME" && git pull origin "$BRANCH_NAME" || {
+                print_message "red" "Failed to checkout/pull branch $BRANCH_NAME"
+                exit 1
+            }
+            print_message "green" "Checked out branch: $BRANCH_NAME"
+        fi
     fi
 }
 
