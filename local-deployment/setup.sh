@@ -387,6 +387,8 @@ prepare_environment_variable() {
         handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
     fi
 
+    CRYPTO_KEY=$(openssl rand -hex 32)
+
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
         s|localhost|$(escape_sed "$MACHINE_IP")|g;
@@ -419,6 +421,7 @@ prepare_environment_variable() {
             s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
         }
         s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
+        s|^CRYPTO_KEY=.*|CRYPTO_KEY=$(escape_sed "$CRYPTO_KEY")|;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
@@ -910,7 +913,7 @@ KEYCLOAK_ADMIN_PASSWORD=admin
 
 KC_HTTP_ENABLED=true
 KC_DB=postgres
-KC_DB_URL=jdbc:postgresql://$KEYCLOAK_DB_HOST:$KEYCLOAK_DB_PORT/keycloak
+KC_DB_URL=jdbc:postgresql://$KEYCLOAK_DB_HOST:$KEYCLOAK_DB_PORT/$KEYCLOAK_DB_NAME
 KC_DB_USERNAME=$KEYCLOAK_DB_USER
 KC_DB_PASSWORD=$KEYCLOAK_DB_PASSWORD
 KC_DB_URL_PORT=$KEYCLOAK_DB_PORT
@@ -1136,6 +1139,12 @@ generate_secret() {
     AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CREDEBL_CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
     ADMIN_PASSWORD=$(echo -n "$ADMIN_USER_PASSWORD" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    
+    # Validate encrypted data doesn't contain problematic characters
+    if [ -z "$AES_ENCRYPTED_CLIENT_ID" ] || [ -z "$AES_ENCRYPTED_CLIENT_SECRET" ] || [ -z "$ADMIN_PASSWORD" ]; then
+        print_message "red" "Failed to encrypt credentials properly"
+        exit 1
+    fi
 
     # Update .env file
     sed_inplace \
@@ -1146,7 +1155,7 @@ generate_secret() {
         print_message "red" "Failed to update secrets in .env"
         return 1
     }
-
+    
     print_message "green" "JWT secret generated and stored successfully"
 }
 # Step 7: Pull credo-controller image
