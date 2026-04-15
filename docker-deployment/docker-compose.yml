@@ -175,6 +175,7 @@ services:
       - ./.env
     environment:
       - ROOT_PATH=$PWD/apps/agent-provisioning/AFJ/agent-config
+    user: root
     volumes:
       - $PWD/apps/agent-provisioning/AFJ/agent-config:/app/agent-provisioning/AFJ/agent-config
       - /var/run/docker.sock:/var/run/docker.sock
@@ -202,6 +203,7 @@ services:
     image: ghcr.io/credebl/agent-service:latest
     env_file:
       - ./.env
+    user: root
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock
     volumes_from:
@@ -243,9 +245,7 @@ services:
     depends_on:
       - nats
       - api-gateway
-    build:
-      context: ./  # Adjust the context path as needed
-      dockerfile: Dockerfiles/Dockerfile.ecosystem
+    image: ghcr.io/credebl/ecosystem:latest
     env_file:
       - ./.env
   oid4vc-issuance:
@@ -253,9 +253,7 @@ services:
     depends_on:
       - nats
       - api-gateway
-    build:
-      context: ./  # Adjust the context path as needed
-      dockerfile: Dockerfiles/Dockerfile.oid4vc-issuance
+    image: ghcr.io/credebl/oid4vc-issuance:latest
     env_file:
       - ./.env
   oid4vc-verification:
@@ -263,9 +261,7 @@ services:
     depends_on:
       - nats
       - api-gateway
-    build:
-      context: ./  # Adjust the context path as needed
-      dockerfile: Dockerfiles/Dockerfile.oid4vc-verification
+    image: ghcr.io/credebl/oid4vc-verification:latest
     env_file:
       - ./.env
   x509:
@@ -273,9 +269,7 @@ services:
     depends_on:
       - nats
       - api-gateway
-    build:
-      context: ./  # Adjust the context path as needed
-      dockerfile: Dockerfiles/Dockerfile.x509
+    image: ghcr.io/credebl/x509:latest
     env_file:
       - ./.env
   
