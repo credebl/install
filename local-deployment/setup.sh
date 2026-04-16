@@ -431,7 +431,7 @@ prepare_environment_variable() {
         handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
     fi
 
-    CRYPTO_KEY=$(openssl rand -hex 32)
+    CRYPTO_KEY=$(openssl rand -hex 20)
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
@@ -465,7 +465,7 @@ prepare_environment_variable() {
             s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
         }
         s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
-        s|^CRYPTO_KEY=.*|CRYPTO_KEY=$(escape_sed "$CRYPTO_KEY")|;
+        s|^CRYPTO_PRIVATE_KEY=.*|CRYPTO_PRIVATE_KEY=$(escape_sed "$CRYPTO_KEY")|;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
@@ -1080,7 +1080,7 @@ setup_keycloak_terraform() {
         exit 1
     }
     
-    print_message "yellow" "Waiting 30 seconds for Keycloak to be fully ready..."
+    print_message "yellow" "Waiting few seconds for Keycloak to be fully ready..."
     sleep 40
     
     terraform apply -auto-approve || {
