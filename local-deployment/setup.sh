@@ -586,10 +586,49 @@ fi
 
 }
 
+install_psql() {
+    if command_exists psql; then
+        print_message "green" "psql already installed"
+        return 0
+    fi
+    print_message "yellow" "psql not found. Installing PostgreSQL client..."
+    case "$OS_ID" in
+        "ubuntu"|"debian")
+            sudo apt-get install -y postgresql-client-common postgresql-client || {
+                print_message "red" "Failed to install PostgreSQL client"
+                exit 1
+            }
+            ;;
+        "Darwin")
+            if ! command_exists brew; then
+                print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
+                exit 1
+            fi
+            brew install libpq && brew link --force libpq || {
+                print_message "red" "Failed to install PostgreSQL client via Homebrew"
+                exit 1
+            }
+            export PATH="/opt/homebrew/opt/libpq/bin:/usr/local/opt/libpq/bin:$PATH"
+            ;;
+        *)
+            print_message "red" "Unsupported OS for psql installation: $OS_ID"
+            exit 1
+            ;;
+    esac
+    print_message "green" "psql installed successfully"
+}
+
 # Check docker and node, if not available installs node
 install_nodejs() {
     print_message "blue" "Checking Node.js installation..."
     
+    # Ensure OS is detected
+    if [ -z "${OS_ID:-}" ]; then
+        detect_os
+    fi
+
+    install_psql
+
     # Check if Node.js is already installed
     if command_exists node && command_exists npm; then
         local node_version=$(node --version 2>/dev/null || echo "unknown")
@@ -611,11 +650,6 @@ install_nodejs() {
     fi
     
     print_message "yellow" "Node.js not found. Installing..."
-    
-    # Ensure OS is detected
-    if [ -z "$OS_ID" ]; then
-        detect_os
-    fi
     
     case "$OS_ID" in
         "ubuntu"|"debian")
@@ -1435,6 +1469,7 @@ main(){
     configure_ports
     prepare_environment_variable
     detect_os
+    install_nodejs
     install_docker
     install_terraform
     deploy_keycloak
