@@ -72,6 +72,26 @@ prepare_env_file(){
     else
         print_message "green" ".env already exists. Skipping copy and checking existing values..."
     fi
+
+    if [ ! -f agent.env ]; then
+    print_message "yellow" "Copying agent env file"
+    curl -L -o agent.env https://raw.githubusercontent.com/credebl/platform/refs/heads/main/agent.env || {
+        print_message "red" "Failed to copy agent.env"
+        exit 1
+    }
+    else
+        print_message "green" "agent.env already exists. Skipping copy and checking existing values..."
+    fi
+
+    if [ ! -f credebl-master-table.json ]; then
+    print_message "yellow" "Copying credebl-master-table.json file"
+    curl -L -o credebl-master-table.json https://raw.githubusercontent.com/credebl/platform/refs/heads/main/libs/prisma-service/prisma/data/credebl-master-table/credebl-master-table.json || {
+        print_message "red" "Failed to copy credebl-master-table.json"
+        exit 1
+    }
+    else
+        print_message "green" "credebl-master-table.json already exists. Skipping copy and checking existing values..."
+    fi
 }
 
 PORTS_POSTGRES=5432
@@ -80,6 +100,8 @@ PORTS_REDIS=6379
 PORTS_KEYCLOAK=8080
 PORTS_SCHEMA_FILE_SERVER=4000
 PORTS_STUDIO=3000
+PORT_AGENT=8001
+PORT_INBOUND_AGENT=9001
 
 # Function to check if port is available
 is_port_available() {
@@ -137,6 +159,8 @@ configure_ports() {
     USED_PORT_KEYCLOAK=$(find_available_port "$PORTS_KEYCLOAK")
     USED_PORT_SCHEMA_FILE_SERVER=$(find_available_port "$PORTS_SCHEMA_FILE_SERVER")
     USED_PORT_STUDIO=$(find_available_port "$PORTS_STUDIO")
+    USED_PORT_AGENT=$(find_available_port "$PORT_AGENT")
+    USED_PORT_INBOUND_AGENT=$(find_available_port "$PORT_INBOUND_AGENT")
     
     echo "Assigned ports:"
     echo "PostgreSQL: $USED_PORT_POSTGRES"
@@ -145,7 +169,9 @@ configure_ports() {
     echo "Keycloak: $USED_PORT_KEYCLOAK"
     echo "Schema Server: $USED_PORT_SCHEMA_FILE_SERVER"
     echo "Studio: $USED_PORT_STUDIO"
-    
+    echo "Agent: $USED_PORT_AGENT"
+    echo "Inbound Agent: $USED_PORT_INBOUND_AGENT"
+
     update_ports_config
 }
 
@@ -245,10 +271,105 @@ prepare_environment_variable() {
     local STUDIO_URL="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
 
 
-    handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
-    handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
+    # Initialize email provider variables to prevent unbound variable errors
+    SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+    RESEND_API_KEY=${RESEND_API_KEY:-}
+    SMTP_HOST=${SMTP_HOST:-}
+    SMTP_PORT=${SMTP_PORT:-}
+    SMTP_USER=${SMTP_USER:-}
+    SMTP_PASS=${SMTP_PASS:-}
+    EMAIL_FROM=${EMAIL_FROM:-}
+
+    # Email provider configuration
+    echo -e "\n# Email Provider Configuration"
+    
+    # Check if EMAIL_PROVIDER is already set in .env
+    local current_email_provider=$(grep "^EMAIL_PROVIDER=" .env 2>/dev/null | cut -d'=' -f2-)
+    
+    if [[ -n "$current_email_provider" ]]; then
+        if prompt_yes_no "Found existing EMAIL_PROVIDER=$current_email_provider in .env. Continue with this provider?"; then
+            EMAIL_PROVIDER="$current_email_provider"
+            print_message "green" "Using existing email provider: $EMAIL_PROVIDER"
+        else
+            print_message "yellow" "Will prompt for new email provider selection"
+            while true; do
+                read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+                case "$EMAIL_PROVIDER" in
+                    sendgrid|resend|smtp) break ;;
+                    *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+                esac
+            done
+        fi
+    else
+        while true; do
+            read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+            case "$EMAIL_PROVIDER" in
+                sendgrid|resend|smtp) break ;;
+                *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+            esac
+        done
+    fi
+
+    case "$EMAIL_PROVIDER" in
+        sendgrid)
+            handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment SendGrid variables and comment others
+            sed_inplace "
+                s|^# SENDGRID_API_KEY=|SENDGRID_API_KEY=|;
+                s|^RESEND_API_KEY=|#RESEND_API_KEY=|;
+                s|^SMTP_HOST=|#SMTP_HOST=|;
+                s|^SMTP_PORT=|#SMTP_PORT=|;
+                s|^SMTP_USER=|#SMTP_USER=|;
+                s|^SMTP_PASS=|#SMTP_PASS=|;
+            " .env
+            ;;
+        resend)
+            handle_existing_value "RESEND_API_KEY" "Enter Resend API key"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment Resend variables and comment others
+            sed_inplace "
+                s|^SENDGRID_API_KEY=|#SENDGRID_API_KEY=|;
+                s|^#RESEND_API_KEY=|RESEND_API_KEY=|;
+                s|^SMTP_HOST=|#SMTP_HOST=|;
+                s|^SMTP_PORT=|#SMTP_PORT=|;
+                s|^SMTP_USER=|#SMTP_USER=|;
+                s|^SMTP_PASS=|#SMTP_PASS=|;
+            " .env
+            ;;
+        smtp)
+            handle_existing_value "SMTP_HOST" "Enter SMTP host"
+            handle_existing_value "SMTP_PORT" "Enter SMTP port"
+            handle_existing_value "SMTP_USER" "Enter SMTP username"
+            handle_existing_value "SMTP_PASS" "Enter SMTP password"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment SMTP variables and comment others
+            sed_inplace "
+                s|^SENDGRID_API_KEY=|#SENDGRID_API_KEY=|;
+                s|^RESEND_API_KEY=|#RESEND_API_KEY=|;
+                s|^# SMTP_HOST=|SMTP_HOST=|;
+                s|^# SMTP_PORT=|SMTP_PORT=|;
+                s|^# SMTP_USER=|SMTP_USER=|;
+                s|^# SMTP_PASS=|SMTP_PASS=|;
+            " .env
+            ;;
+    esac
 
     # Required S3 variables
+    handle_existing_value "ADMIN_USER_PASSWORD" "Enter Password for Admin User"
+
     echo -e "\n# Provide S3 credentials, required for storing connection URLs"
     handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
     handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
@@ -273,12 +394,22 @@ prepare_environment_variable() {
         handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
     fi
 
+    CRYPTO_KEY=$(openssl rand -hex 20)
+
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|database-ip|$(escape_sed "$MACHINE_IP")|g;
         s|localhost|$(escape_sed "$MACHINE_IP")|g;
         s|^CREDEBL_DOMAIN=.*|CREDEBL_DOMAIN=$(escape_sed "$STUDIO_URL")|;
         s|^FRONT_END_URL=.*|FRONT_END_URL=$(escape_sed "$STUDIO_URL")|;
-        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
+        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "${SENDGRID_API_KEY:-}")|;
+        s|^RESEND_API_KEY=.*|RESEND_API_KEY=$(escape_sed "${RESEND_API_KEY:-}")|;
+        s|^SMTP_HOST=.*|SMTP_HOST=$(escape_sed "${SMTP_HOST:-}")|;
+        s|^SMTP_PORT=.*|SMTP_PORT=$(escape_sed "${SMTP_PORT:-}")|;
+        s|^SMTP_USER=.*|SMTP_USER=$(escape_sed "${SMTP_USER:-}")|;
+        s|^SMTP_PASS=.*|SMTP_PASS=$(escape_sed "${SMTP_PASS:-}")|;
+        s|^EMAIL_FROM=.*|EMAIL_FROM=$(escape_sed "${EMAIL_FROM:-}")|;
+        s|^EMAIL_PROVIDER=.*|EMAIL_PROVIDER=$(escape_sed "$EMAIL_PROVIDER")|;
         /^# Used for storing connection URL/,/^$/ {
             s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
             s|^AWS_S3_STOREOBJECT_SECRET_KEY=.*|AWS_S3_STOREOBJECT_SECRET_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_SECRET_KEY")|;
@@ -298,11 +429,12 @@ prepare_environment_variable() {
             s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
         }
         s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
+        s|^CRYPTO_PRIVATE_KEY=.*|CRYPTO_PRIVATE_KEY=$(escape_sed "$CRYPTO_KEY")|;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
     }
-
+    
     if [ -n "$AWS_ORG_LOGO_BUCKET_NAME" ] && [ -n "$AWS_PUBLIC_REGION" ]; then
         ORG_LOGO_URL="https://$AWS_ORG_LOGO_BUCKET_NAME.s3.$AWS_PUBLIC_REGION.amazonaws.com"
     else
@@ -354,42 +486,127 @@ prepare_environment_variable() {
 
     ESCAPED_CORS_LIST=$(escape_sed "$UPDATED_CORS_LIST")
     sed_inplace "s|^ENABLE_CORS_IP_LIST=.*|ENABLE_CORS_IP_LIST=$ESCAPED_CORS_LIST|" .env
-    sed_inplace "s|your-ip|$(escape_sed "$MACHINE_IP")|g" agent.env
+    sed_inplace "s|SERVER_URL=.*|SERVER_URL=http://$(escape_sed "$MACHINE_IP"):${USED_PORT_SCHEMA_FILE_SERVER}|g" agent.env
+    sed_inplace "s|AGENT_HTTP_URL=.*|AGENT_HTTP_URL=http://$(escape_sed "$MACHINE_IP"):${USED_PORT_AGENT}|g" agent.env
     print_message "green" "Environment file configured successfully."
 }
 
 # Check docker and node, if not available installs node
 install_nodejs() {
-    # Check and install Node.js if needed
-    if ! command_exists -v node &> /dev/null; then
-        print_message "yellow" "Node.js not found. Installing..."
+    print_message "blue" "Checking Node.js installation..."
+    
+    # Check if Node.js is already installed
+    if command_exists node && command_exists npm; then
+        local node_version=$(node --version 2>/dev/null || echo "unknown")
+        local npm_version=$(npm --version 2>/dev/null || echo "unknown")
+        print_message "green" "Node.js $node_version and npm $npm_version already installed"
         
-        if [[ "$OS_ID" == "ubuntu" || "$OS_ID" == "debian" ]]; then
-            # Linux installation
-            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-            sudo apt-get install -y nodejs || {
-                print_message "red" "Failed to install Node.js"
+        # Check if pnpm is installed, install if not
+        if ! command_exists pnpm; then
+            print_message "yellow" "Installing pnpm..."
+            sudo npm install -g pnpm || {
+                print_message "red" "Failed to install pnpm"
                 exit 1
             }
-        elif [[ "$OS_ID" == "Darwin" ]]; then
-            # macOS installation
-            if ! command_exists -v brew &> /dev/null; then
-                print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
-                exit 1
-            fi
-            brew install node || {
-                print_message "red" "Failed to install Node.js"
-                exit 1
-            }
+            print_message "green" "pnpm installed successfully"
         else
-            print_message "red" "Unsupported OS for Node.js installation"
-            exit 1
+            print_message "green" "pnpm already installed"
         fi
-        print_message "green" "Node.js installed successfully"
+        return 0
+    fi
+    
+    print_message "yellow" "Node.js not found. Installing..."
+    
+    # Ensure OS is detected
+    if [ -z "$OS_ID" ]; then
+        detect_os
+    fi
+    
+    case "$OS_ID" in
+        "ubuntu"|"debian")
+            install_nodejs_linux
+            ;;
+        "Darwin")
+            install_nodejs_macos
+            ;;
+        *)
+            print_message "red" "Unsupported OS for Node.js installation: $OS_ID"
+            exit 1
+            ;;
+    esac
+    
+    # Verify installation
+    if command_exists node && command_exists npm; then
+        local node_version=$(node --version)
+        local npm_version=$(npm --version)
+        print_message "green" "Node.js $node_version and npm $npm_version installed successfully"
+        
+        # Install pnpm globally
+        print_message "yellow" "Installing pnpm..."
+        sudo npm install -g pnpm || {
+            print_message "red" "Failed to install pnpm"
+            exit 1
+        }
+        print_message "green" "pnpm installed successfully"
     else
-        print_message "green" "Node.js already installed"
+        print_message "red" "Node.js installation verification failed"
+        exit 1
     fi
 }
+
+install_nodejs_linux() {
+    print_message "yellow" "Installing Node.js on Linux..."
+    
+    # Update package list
+    sudo apt-get update || {
+        print_message "red" "Failed to update package list"
+        exit 1
+    }
+    
+    # Install prerequisites including PostgreSQL client
+    sudo apt-get install -y ca-certificates curl gnupg|| {
+        print_message "red" "Failed to install prerequisites"
+        exit 1
+    }
+    
+    # Add NodeSource repository
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - || {
+        print_message "red" "Failed to add NodeSource repository"
+        exit 1
+    }
+    
+    # Install Node.js
+    sudo apt-get install -y nodejs || {
+        print_message "red" "Failed to install Node.js"
+        exit 1
+    }
+    
+    print_message "green" "Node.js installed successfully on Linux"
+}
+
+install_nodejs_macos() {
+    print_message "yellow" "Installing Node.js on macOS..."
+    
+    # Check if Homebrew is installed
+    if ! command_exists brew; then
+        print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
+        exit 1
+    fi
+    
+    # Update Homebrew
+    brew update || {
+        print_message "yellow" "Failed to update Homebrew, continuing..."
+    }
+    
+    # Install Node.js
+    brew install node || {
+        print_message "red" "Failed to install Node.js via Homebrew"
+        exit 1
+    }
+    
+    print_message "green" "Node.js installed successfully on macOS"
+}
+
 
 install_docker() {
     local OS_ID
@@ -694,7 +911,7 @@ setup_keycloak_terraform() {
         exit 1
     }
     
-    print_message "yellow" "Waiting 30 seconds for Keycloak to be fully ready..."
+    print_message "yellow" "Waiting few seconds for Keycloak to be fully ready..."
     sleep 40
     
     terraform apply -auto-approve || {
@@ -715,9 +932,15 @@ update_keycloak_secret() {
         return 1
     fi
     
-    CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-    if [ -z "$CLIENT_SECRET" ]; then
+    ADMIN_CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$ADMIN_CLIENT_SECRET" ]; then
         print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
+        return 1
+    fi
+
+    CREDEBL_CLIENT_SECRET=$(grep CREDEBL_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$CREDEBL_CLIENT_SECRET" ]; then
+        print_message "red" "Failed to extract CREDEBL_CLIENT_SECRET from secret.env"
         return 1
     fi
     
@@ -735,23 +958,35 @@ update_keycloak_secret() {
     }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET/" .env || {
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET/" .env || {
             print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
     fi
     
+    if grep -q "ADMIN_KEYCLOAK_SECRET" .env; then
+        sed_inplace "s/^ADMIN_KEYCLOAK_SECRET=.*/ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET/" .env || {
+            print_message "red" "Failed to update ADMIN_KEYCLOAK_SECRET in .env"
+            return 1
+        }
+    else
+        echo "ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET" >> .env || {
+            print_message "red" "Failed to append ADMIN_KEYCLOAK_SECRET to .env"
+            return 1
+        }
+    fi
+
     print_message "green" "Keycloak secret updated in .env successfully."
 }
 
 generate_secret() {
-    print_message "blue" "Generating JWT secret..."    
-    install_nodejs    
+    print_message "blue" "Generating JWT secret..."
+    
     escape_for_sed_replacement() {
     printf '%s' "$1" \
         | sed 's/[&|]/\\&/g'
@@ -772,8 +1007,9 @@ generate_secret() {
         print_message "yellow" "OpenSSL too old, using deprecated key derivation."
     fi
     AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
-    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CREDEBL_CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
+    ADMIN_PASSWORD=$(echo -n "$ADMIN_USER_PASSWORD" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
 
     # Update .env file
     sed_inplace \
@@ -803,8 +1039,8 @@ pull_credo_controller() {
 update_master_table() {
     print_message "blue" "Updating master table configuration..."
     
-    if [ -z "$SENDGRID_API_KEY" ] || [ -z "$EMAIL_FROM" ]; then
-        print_message "red" "SendGrid API key and sender email cannot be empty"
+    if [ -z "${SENDGRID_API_KEY}${RESEND_API_KEY}${SMTP_HOST}" ] || [ -z "$EMAIL_FROM" ]; then
+        print_message "red" "Email provider configuration and sender email cannot be empty"
         exit 1
     fi
     
@@ -823,13 +1059,35 @@ update_master_table() {
         exit 1
     }
     
-    sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
-        print_message "red" "Failed to update SendGrid key in master table"
-        exit 1
-    }
+    # Update master table with appropriate email provider settings
+    case "$EMAIL_PROVIDER" in
+        sendgrid)
+            sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
+                print_message "red" "Failed to update SendGrid key in master table"
+                exit 1
+            }
+            ;;
+        resend)
+            sed_inplace "s|###Sendgrid Key###|$RESEND_API_KEY|g" credebl-master-table.json || {
+                print_message "red" "Failed to update Resend key in master table"
+                exit 1
+            }
+            ;;
+        smtp)
+            sed_inplace "s|###Sendgrid Key###|smtp_configured|g" credebl-master-table.json || {
+                print_message "red" "Failed to update SMTP configuration in master table"
+                exit 1
+            }
+            ;;
+    esac
     
     sed_inplace "s|##Senders Mail ID##|$EMAIL_FROM|g" credebl-master-table.json || {
         print_message "red" "Failed to update sender email in master table"
+        exit 1
+    }
+
+    sed_inplace "s|##Please provide encrypted password using crypto-js##|$ADMIN_PASSWORD|g" credebl-master-table.json || {
+        print_message "red" "Failed to update email provider in master table"
         exit 1
     }
     

@@ -4,10 +4,10 @@ locals {
       client_id = "adminClient"
     }
     client2 = {
-      client_id = "platformClient"
+      client_id = "credeblClient"
     }
     client3 = {
-      client_id = "trust-client"
+      client_id = "trustClient"
     }
   }
 }

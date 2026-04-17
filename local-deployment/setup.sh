@@ -65,18 +65,62 @@ prompt_yes_no() {
 clone_platform(){
     print_message "blue" "\n Setting up CREDEBL Platform..."
     
-    read -p "Provide branch name you want to work on: " BRANCH
-    echo "You entered branch: $BRANCH"
+    # Ask user for deployment type
+    while true; do
+        read -p "Do you want to deploy CREDEBL using a tag or branch? (tag/branch): " DEPLOY_TYPE
+        case "$DEPLOY_TYPE" in
+            tag|branch) break ;;
+            *) echo "Please enter only 'tag' or 'branch'." ;;
+        esac
+    done
+    
+    if [ "$DEPLOY_TYPE" = "tag" ]; then
+        read -p "Enter the tag name you want to deploy: " TAG_NAME
+        echo "You entered tag: $TAG_NAME"
+        CHECKOUT_REF="$TAG_NAME"
+    else
+        read -p "Enter the branch name you want to work on: " BRANCH_NAME
+        echo "You entered branch: $BRANCH_NAME"
+        CHECKOUT_REF="$BRANCH_NAME"
+    fi
 
     if [ -d "platform" ]; then
-        print_message "yellow" "Platform directory exists, pulling latest changes..."
-        cd platform && git fetch origin && git checkout $BRANCH && git pull origin $BRANCH
+        print_message "yellow" "Platform directory exists, updating..."
+        cd platform && git fetch origin
+        
+        if [ "$DEPLOY_TYPE" = "tag" ]; then
+            git checkout "$TAG_NAME" || {
+                print_message "red" "Failed to checkout tag $TAG_NAME"
+                exit 1
+            }
+            print_message "green" "Checked out tag: $TAG_NAME"
+        else
+            git checkout "$BRANCH_NAME" && git pull origin "$BRANCH_NAME" || {
+                print_message "red" "Failed to checkout/pull branch $BRANCH_NAME"
+                exit 1
+            }
+            print_message "green" "Updated branch: $BRANCH_NAME"
+        fi
     else
         git clone -b main https://github.com/credebl/platform.git || {
-            print_message "red" "Failed to clone Studio repository"
+            print_message "red" "Failed to clone platform repository"
             exit 1
         }
-        cd platform && git checkout $BRANCH && git pull origin $BRANCH
+        cd platform
+        
+        if [ "$DEPLOY_TYPE" = "tag" ]; then
+            git checkout "$TAG_NAME" || {
+                print_message "red" "Failed to checkout tag $TAG_NAME"
+                exit 1
+            }
+            print_message "green" "Checked out tag: $TAG_NAME"
+        else
+            git checkout "$BRANCH_NAME" && git pull origin "$BRANCH_NAME" || {
+                print_message "red" "Failed to checkout/pull branch $BRANCH_NAME"
+                exit 1
+            }
+            print_message "green" "Checked out branch: $BRANCH_NAME"
+        fi
     fi
 }
 
@@ -99,7 +143,8 @@ PORTS_REDIS=6379
 PORTS_KEYCLOAK=8080
 PORTS_SCHEMA_FILE_SERVER=4000
 PORTS_STUDIO=3000
-
+PORT_AGENT=8001
+PORT_INBOUND_AGENT=9001
 # Function to check if port is available
 is_port_available() {
     local port=$1
@@ -156,6 +201,8 @@ configure_ports() {
     USED_PORT_KEYCLOAK=$(find_available_port "$PORTS_KEYCLOAK")
     USED_PORT_SCHEMA_FILE_SERVER=$(find_available_port "$PORTS_SCHEMA_FILE_SERVER")
     USED_PORT_STUDIO=$(find_available_port "$PORTS_STUDIO")
+    USED_PORT_AGENT=$(find_available_port "$PORT_AGENT")
+    USED_PORT_INBOUND_AGENT=$(find_available_port "$PORT_INBOUND_AGENT")
     
     echo "Assigned ports:"
     echo "PostgreSQL: $USED_PORT_POSTGRES"
@@ -164,7 +211,9 @@ configure_ports() {
     echo "Keycloak: $USED_PORT_KEYCLOAK"
     echo "Schema Server: $USED_PORT_SCHEMA_FILE_SERVER"
     echo "Studio: $USED_PORT_STUDIO"
-    
+    echo "Agent: $USED_PORT_AGENT"
+    echo "Inbound Agent: $USED_PORT_INBOUND_AGENT"
+
     update_ports_config
 }
 
@@ -208,7 +257,7 @@ prepare_environment_variable() {
         if [[ -n "$current_value" ]]; then
             if [[ "$var_name" =~ (PASS|KEY) ]]; then
                 # Don't show the actual value
-                if prompt_yes_no "Found existing $var_name (hidden). Continue with this value?"; then
+                if prompt_yes_no "Found existing $var_name (hidden) in .env. Continue with this value?"; then
                     printf -v "$var_name" '%s' "$current_value"
                     print_message "green" "Using existing $var_name"
                     return
@@ -217,7 +266,7 @@ prepare_environment_variable() {
                 fi
             else
                 # Safe to display non-sensitive values
-                if prompt_yes_no "Found existing $var_name=$current_value. Continue with this value?"; then
+                if prompt_yes_no "Found existing $var_name=$current_value in .env. Continue with this value?"; then
                     printf -v "$var_name" '%s' "$current_value"
                     print_message "green" "Using existing $var_name"
                     return
@@ -258,11 +307,106 @@ prepare_environment_variable() {
     local AWS_PUBLIC_REGION=${AWS_PUBLIC_REGION:-}
     local AWS_ORG_LOGO_BUCKET_NAME=${AWS_ORG_LOGO_BUCKET_NAME:-}
     local STUDIO_URL="http://${MACHINE_IP}:${USED_PORT_STUDIO}"
+    
+    # Initialize email provider variables to prevent unbound variable errors
+    SENDGRID_API_KEY=${SENDGRID_API_KEY:-}
+    RESEND_API_KEY=${RESEND_API_KEY:-}
+    SMTP_HOST=${SMTP_HOST:-}
+    SMTP_PORT=${SMTP_PORT:-}
+    SMTP_USER=${SMTP_USER:-}
+    SMTP_PASS=${SMTP_PASS:-}
+    EMAIL_FROM=${EMAIL_FROM:-}
 
-    handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
-    handle_existing_value "EMAIL_FROM" "Enter SendGrid sender email"
+    # Email provider configuration
+    echo -e "\n# Email Provider Configuration"
+    
+    # Check if EMAIL_PROVIDER is already set in .env
+    local current_email_provider=$(grep "^EMAIL_PROVIDER=" .env 2>/dev/null | cut -d'=' -f2-)
+    
+    if [[ -n "$current_email_provider" ]]; then
+        if prompt_yes_no "Found existing EMAIL_PROVIDER=$current_email_provider in .env. Continue with this provider?"; then
+            EMAIL_PROVIDER="$current_email_provider"
+            print_message "green" "Using existing email provider: $EMAIL_PROVIDER"
+        else
+            print_message "yellow" "Will prompt for new email provider selection"
+            while true; do
+                read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+                case "$EMAIL_PROVIDER" in
+                    sendgrid|resend|smtp) break ;;
+                    *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+                esac
+            done
+        fi
+    else
+        while true; do
+            read -p "Which email provider do you want to use? (sendgrid/resend/smtp): " EMAIL_PROVIDER
+            case "$EMAIL_PROVIDER" in
+                sendgrid|resend|smtp) break ;;
+                *) echo "Please enter only 'sendgrid', 'resend', or 'smtp'." ;;
+            esac
+        done
+    fi
+
+    case "$EMAIL_PROVIDER" in
+        sendgrid)
+            handle_existing_value "SENDGRID_API_KEY" "Enter SendGrid API key"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment SendGrid variables and comment others
+            sed_inplace "
+                s|^# SENDGRID_API_KEY=|SENDGRID_API_KEY=|;
+                s|^RESEND_API_KEY=|#RESEND_API_KEY=|;
+                s|^SMTP_HOST=|#SMTP_HOST=|;
+                s|^SMTP_PORT=|#SMTP_PORT=|;
+                s|^SMTP_USER=|#SMTP_USER=|;
+                s|^SMTP_PASS=|#SMTP_PASS=|;
+            " .env
+            ;;
+        resend)
+            handle_existing_value "RESEND_API_KEY" "Enter Resend API key"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment Resend variables and comment others
+            sed_inplace "
+                s|^SENDGRID_API_KEY=|#SENDGRID_API_KEY=|;
+                s|^#RESEND_API_KEY=|RESEND_API_KEY=|;
+                s|^SMTP_HOST=|#SMTP_HOST=|;
+                s|^SMTP_PORT=|#SMTP_PORT=|;
+                s|^SMTP_USER=|#SMTP_USER=|;
+                s|^SMTP_PASS=|#SMTP_PASS=|;
+            " .env
+            ;;
+        smtp)
+            handle_existing_value "SMTP_HOST" "Enter SMTP host"
+            handle_existing_value "SMTP_PORT" "Enter SMTP port"
+            handle_existing_value "SMTP_USER" "Enter SMTP username"
+            handle_existing_value "SMTP_PASS" "Enter SMTP password"
+            handle_existing_value "EMAIL_FROM" "Enter sender email address"
+            # Ensure EMAIL_FROM is in .env file
+            if ! grep -q "^EMAIL_FROM=" .env; then
+                echo "EMAIL_FROM=$EMAIL_FROM" >> .env
+            fi
+            # Uncomment SMTP variables and comment others
+            sed_inplace "
+                s|^SENDGRID_API_KEY=|#SENDGRID_API_KEY=|;
+                s|^RESEND_API_KEY=|#RESEND_API_KEY=|;
+                s|^# SMTP_HOST=|SMTP_HOST=|;
+                s|^# SMTP_PORT=|SMTP_PORT=|;
+                s|^# SMTP_USER=|SMTP_USER=|;
+                s|^# SMTP_PASS=|SMTP_PASS=|;
+            " .env
+            ;;
+    esac
 
     # Required S3 variables
+    handle_existing_value "ADMIN_USER_PASSWORD" "Enter Password for Admin User"
+    
     echo -e "\n# Provide S3 credentials, required for storing connection URLs"
     handle_existing_value "AWS_S3_STOREOBJECT_ACCESS_KEY" "Enter AWS S3 Access Key"
     handle_existing_value "AWS_S3_STOREOBJECT_SECRET_KEY" "Enter AWS S3 Secret Key"
@@ -287,12 +431,22 @@ prepare_environment_variable() {
         handle_existing_value "AWS_ORG_LOGO_BUCKET_NAME" "Enter AWS Org Logo Bucket"
     fi
 
+    CRYPTO_KEY=$(openssl rand -hex 20)
+
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|database-ip|$(escape_sed "$MACHINE_IP")|g;
         s|localhost|$(escape_sed "$MACHINE_IP")|g;
         s|^CREDEBL_DOMAIN=.*|CREDEBL_DOMAIN=$(escape_sed "$STUDIO_URL")|;
         s|^FRONT_END_URL=.*|FRONT_END_URL=$(escape_sed "$STUDIO_URL")|;
-        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "$SENDGRID_API_KEY")|;
+        s|^SENDGRID_API_KEY=.*|SENDGRID_API_KEY=$(escape_sed "${SENDGRID_API_KEY:-}")|;
+        s|^RESEND_API_KEY=.*|RESEND_API_KEY=$(escape_sed "${RESEND_API_KEY:-}")|;
+        s|^SMTP_HOST=.*|SMTP_HOST=$(escape_sed "${SMTP_HOST:-}")|;
+        s|^SMTP_PORT=.*|SMTP_PORT=$(escape_sed "${SMTP_PORT:-}")|;
+        s|^SMTP_USER=.*|SMTP_USER=$(escape_sed "${SMTP_USER:-}")|;
+        s|^SMTP_PASS=.*|SMTP_PASS=$(escape_sed "${SMTP_PASS:-}")|;
+        s|^EMAIL_FROM=.*|EMAIL_FROM=$(escape_sed "${EMAIL_FROM:-}")|;
+        s|^EMAIL_PROVIDER=.*|EMAIL_PROVIDER=$(escape_sed "$EMAIL_PROVIDER")|;
         /^# Used for storing connection URL/,/^$/ {
             s|^AWS_S3_STOREOBJECT_ACCESS_KEY=.*|AWS_S3_STOREOBJECT_ACCESS_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_ACCESS_KEY")|;
             s|^AWS_S3_STOREOBJECT_SECRET_KEY=.*|AWS_S3_STOREOBJECT_SECRET_KEY=$(escape_sed "$AWS_S3_STOREOBJECT_SECRET_KEY")|;
@@ -312,11 +466,13 @@ prepare_environment_variable() {
             s|^AWS_ORG_LOGO_BUCKET_NAME=.*|AWS_ORG_LOGO_BUCKET_NAME=$(escape_sed "$AWS_ORG_LOGO_BUCKET_NAME")|;
         }
         s|^SHORTENED_URL_DOMAIN=.*|SHORTENED_URL_DOMAIN=https://s3.$(escape_sed "$AWS_S3_STOREOBJECT_REGION").amazonaws.com/$(escape_sed "$AWS_S3_STOREOBJECT_BUCKET")|;
+        s|^CRYPTO_PRIVATE_KEY=.*|CRYPTO_PRIVATE_KEY=$(escape_sed "$CRYPTO_KEY")|;
     " .env || {
         print_message "red" "Failed to update .env file"
         exit 1
     }
-    sed_inplace "s|your-ip|$(escape_sed "$MACHINE_IP")|g" agent.env
+    sed_inplace "s|SERVER_URL=.*|SERVER_URL=http://$(escape_sed "$MACHINE_IP"):${USED_PORT_SCHEMA_FILE_SERVER}|g" agent.env
+    sed_inplace "s|AGENT_HTTP_URL=.*|AGENT_HTTP_URL=http://$(escape_sed "$MACHINE_IP"):${USED_PORT_AGENT}|g" agent.env
 
     # Postgres installation and env update regarding postgres
     USE_EXISTING_POSTGRES=false
@@ -431,37 +587,163 @@ fi
 
 }
 
-# Check docker and node, if not available installs node
-install_nodejs() {
-    # Check and install Node.js if needed
-    if ! command_exists -v node &> /dev/null; then
-        print_message "yellow" "Node.js not found. Installing..."
-        
-        if [[ "$OS_ID" == "ubuntu" || "$OS_ID" == "debian" ]]; then
-            # Linux installation
-            curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
-            sudo apt-get install -y nodejs || {
-                print_message "red" "Failed to install Node.js"
+install_psql() {
+    if command_exists psql; then
+        print_message "green" "psql already installed"
+        return 0
+    fi
+    print_message "yellow" "psql not found. Installing PostgreSQL client..."
+    case "$OS_ID" in
+        "ubuntu"|"debian")
+            sudo apt-get install -y postgresql-client-common postgresql-client || {
+                print_message "red" "Failed to install PostgreSQL client"
                 exit 1
             }
-        elif [[ "$OS_ID" == "Darwin" ]]; then
-            # macOS installation
-            if ! command_exists -v brew &> /dev/null; then
+            ;;
+        "Darwin")
+            if ! command_exists brew; then
                 print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
                 exit 1
             fi
-            brew install node || {
-                print_message "red" "Failed to install Node.js"
+            brew install libpq && brew link --force libpq || {
+                print_message "red" "Failed to install PostgreSQL client via Homebrew"
                 exit 1
             }
-        else
-            print_message "red" "Unsupported OS for Node.js installation"
+            export PATH="/opt/homebrew/opt/libpq/bin:/usr/local/opt/libpq/bin:$PATH"
+            ;;
+        *)
+            print_message "red" "Unsupported OS for psql installation: $OS_ID"
             exit 1
-        fi
-        print_message "green" "Node.js installed successfully"
-    else
-        print_message "green" "Node.js already installed"
+            ;;
+    esac
+    print_message "green" "psql installed successfully"
+}
+
+# Check docker and node, if not available installs node
+install_nodejs() {
+    print_message "blue" "Checking Node.js installation..."
+    
+    # Ensure OS is detected
+    if [ -z "${OS_ID:-}" ]; then
+        detect_os
     fi
+
+    install_psql
+
+    # Check if Node.js is already installed
+    if command_exists node && command_exists npm; then
+        local node_version=$(node --version 2>/dev/null || echo "unknown")
+        local npm_version=$(npm --version 2>/dev/null || echo "unknown")
+        print_message "green" "Node.js $node_version and npm $npm_version already installed"
+        
+        # Check if pnpm is installed, install if not
+        if ! command_exists pnpm; then
+            print_message "yellow" "Installing pnpm..."
+            sudo npm install -g pnpm || {
+                print_message "red" "Failed to install pnpm"
+                exit 1
+            }
+            print_message "green" "pnpm installed successfully"
+        else
+            print_message "green" "pnpm already installed"
+        fi
+        return 0
+    fi
+    
+    print_message "yellow" "Node.js not found. Installing..."
+    
+    case "$OS_ID" in
+        "ubuntu"|"debian")
+            install_nodejs_linux
+            ;;
+        "Darwin")
+            install_nodejs_macos
+            ;;
+        *)
+            print_message "red" "Unsupported OS for Node.js installation: $OS_ID"
+            exit 1
+            ;;
+    esac
+    
+    # Verify installation
+    if command_exists node && command_exists npm; then
+        local node_version=$(node --version)
+        local npm_version=$(npm --version)
+        print_message "green" "Node.js $node_version and npm $npm_version installed successfully"
+        
+        # Install pnpm globally
+        print_message "yellow" "Installing pnpm..."
+        sudo npm install -g pnpm || {
+            print_message "red" "Failed to install pnpm"
+            exit 1
+        }
+        print_message "green" "pnpm installed successfully"
+    else
+        print_message "red" "Node.js installation verification failed"
+        exit 1
+    fi
+}
+
+install_nodejs_linux() {
+    print_message "yellow" "Installing Node.js on Linux..."
+    
+    # Update package list
+    sudo apt-get update || {
+        print_message "red" "Failed to update package list"
+        exit 1
+    }
+    
+    # Install prerequisites including PostgreSQL client
+    sudo apt-get install -y ca-certificates curl gnupg postgresql-client-common postgresql-client-16|| {
+        print_message "red" "Failed to install prerequisites"
+        exit 1
+    }
+    
+    # Add NodeSource repository
+    curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - || {
+        print_message "red" "Failed to add NodeSource repository"
+        exit 1
+    }
+    
+    # Install Node.js
+    sudo apt-get install -y nodejs || {
+        print_message "red" "Failed to install Node.js"
+        exit 1
+    }
+    
+    print_message "green" "Node.js and PostgreSQL client installed successfully on Linux"
+}
+
+install_nodejs_macos() {
+    print_message "yellow" "Installing Node.js on macOS..."
+    
+    # Check if Homebrew is installed
+    if ! command_exists brew; then
+        print_message "red" "Homebrew required but not found. Install via: https://brew.sh"
+        exit 1
+    fi
+    
+    # Update Homebrew
+    brew update || {
+        print_message "yellow" "Failed to update Homebrew, continuing..."
+    }
+    
+    # Install Node.js
+    brew install node || {
+        print_message "red" "Failed to install Node.js via Homebrew"
+        exit 1
+    }
+    
+    # Install PostgreSQL client if not already installed
+    if ! command_exists psql; then
+        print_message "yellow" "Installing PostgreSQL client..."
+        brew install postgresql || {
+            print_message "red" "Failed to install PostgreSQL client via Homebrew"
+            exit 1
+        }
+    fi
+    
+    print_message "green" "Node.js and PostgreSQL client installed successfully on macOS"
 }
 
 detect_os() {
@@ -710,7 +992,7 @@ KEYCLOAK_ADMIN_PASSWORD=admin
 
 KC_HTTP_ENABLED=true
 KC_DB=postgres
-KC_DB_URL=jdbc:postgresql://$KEYCLOAK_DB_HOST:$KEYCLOAK_DB_PORT/keycloak
+KC_DB_URL=jdbc:postgresql://$KEYCLOAK_DB_HOST:$KEYCLOAK_DB_PORT/$KEYCLOAK_DB_NAME
 KC_DB_USERNAME=$KEYCLOAK_DB_USER
 KC_DB_PASSWORD=$KEYCLOAK_DB_PASSWORD
 KC_DB_URL_PORT=$KEYCLOAK_DB_PORT
@@ -833,7 +1115,7 @@ setup_keycloak_terraform() {
         exit 1
     }
     
-    print_message "yellow" "Waiting 30 seconds for Keycloak to be fully ready..."
+    print_message "yellow" "Waiting few seconds for Keycloak to be fully ready..."
     sleep 40
     
     terraform apply -auto-approve || {
@@ -854,12 +1136,18 @@ update_keycloak_secret() {
         return 1
     fi
     
-    CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
-    if [ -z "$CLIENT_SECRET" ]; then
+    ADMIN_CLIENT_SECRET=$(grep ADMIN_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$ADMIN_CLIENT_SECRET" ]; then
         print_message "red" "Failed to extract ADMIN_CLIENT_SECRET from secret.env"
         return 1
     fi
     
+    CREDEBL_CLIENT_SECRET=$(grep CREDEBL_CLIENT_SECRET secret.env | cut -d '=' -f2)
+    if [ -z "$CREDEBL_CLIENT_SECRET" ]; then
+        print_message "red" "Failed to extract CREDEBL_CLIENT_SECRET from secret.env"
+        return 1
+    fi
+
     cd "${ROOT_DIR}" || {
         print_message "red" "Failed to change directory to ${ROOT_DIR}"
         exit 1
@@ -874,24 +1162,35 @@ update_keycloak_secret() {
     }
 
     if grep -q "KEYCLOAK_MANAGEMENT_CLIENT_SECRET" .env; then
-        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET/" .env || {
+        sed_inplace "s/^KEYCLOAK_MANAGEMENT_CLIENT_SECRET=.*/KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET/" .env || {
             print_message "red" "Failed to update KEYCLOAK_MANAGEMENT_CLIENT_SECRET in .env"
             return 1
         }
     else
-        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CLIENT_SECRET" >> .env || {
+        echo "KEYCLOAK_MANAGEMENT_CLIENT_SECRET=$CREDEBL_CLIENT_SECRET" >> .env || {
             print_message "red" "Failed to append KEYCLOAK_MANAGEMENT_CLIENT_SECRET to .env"
             return 1
         }
     fi
     
+    if grep -q "ADMIN_KEYCLOAK_SECRET" .env; then
+        sed_inplace "s/^ADMIN_KEYCLOAK_SECRET=.*/ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET/" .env || {
+            print_message "red" "Failed to update ADMIN_KEYCLOAK_SECRET in .env"
+            return 1
+        }
+    else
+        echo "ADMIN_KEYCLOAK_SECRET=$ADMIN_CLIENT_SECRET" >> .env || {
+            print_message "red" "Failed to append ADMIN_KEYCLOAK_SECRET to .env"
+            return 1
+        }
+    fi
+
     print_message "green" "Keycloak secret updated in .env successfully."
 }
 
 generate_secret() {
     print_message "blue" "Generating JWT secret..."
     
-    install_nodejs
     escape_for_sed_replacement() {
     printf '%s' "$1" \
         | sed 's/[&|]/\\&/g'
@@ -916,8 +1215,15 @@ generate_secret() {
     fi
 
     AES_ENCRYPTED_CLIENT_ID=$(echo -n "$CLIENT_ID" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
-    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    AES_ENCRYPTED_CLIENT_SECRET=$(echo -n "$CREDEBL_CLIENT_SECRET" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
     new_secret=$(escape_for_sed_replacement "$JWT_TOKEN_SECRET")
+    ADMIN_PASSWORD=$(echo -n "$ADMIN_USER_PASSWORD" | openssl enc $OPENSSL_ARGS -pass pass:"$CRYPTO_PRIVATE_KEY" | tr -d '\n')
+    
+    # Validate encrypted data doesn't contain problematic characters
+    if [ -z "$AES_ENCRYPTED_CLIENT_ID" ] || [ -z "$AES_ENCRYPTED_CLIENT_SECRET" ] || [ -z "$ADMIN_PASSWORD" ]; then
+        print_message "red" "Failed to encrypt credentials properly"
+        exit 1
+    fi
 
     # Update .env file
     sed_inplace \
@@ -928,7 +1234,7 @@ generate_secret() {
         print_message "red" "Failed to update secrets in .env"
         return 1
     }
-
+    
     print_message "green" "JWT secret generated and stored successfully"
 }
 # Step 7: Pull credo-controller image
@@ -946,15 +1252,14 @@ pull_credo_controller() {
 update_master_table() {
     print_message "blue" "Updating master table configuration..."
 
-    sudo npm install -g pnpm
     pnpm i
     cd $MASTER_TABLE_FILE || {
         print_message "red" "Failed to change directory to $MASTER_TABLE_FILE"
         exit 1
     }
     
-    if [ -z "$SENDGRID_API_KEY" ] || [ -z "$EMAIL_FROM" ]; then
-        print_message "red" "SendGrid API key and sender email cannot be empty"
+    if [ -z "${SENDGRID_API_KEY}${RESEND_API_KEY}${SMTP_HOST}" ] || [ -z "$EMAIL_FROM" ]; then
+        print_message "red" "Email provider configuration and sender email cannot be empty"
         exit 1
     fi
     
@@ -973,16 +1278,38 @@ update_master_table() {
         exit 1
     }
     
-    sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
-        print_message "red" "Failed to update SendGridAgent-Provisioning-Service Microservice is listening to NATS key in master table"
-        exit 1
-    }
+    # Update master table with appropriate email provider settings
+    case "$EMAIL_PROVIDER" in
+        sendgrid)
+            sed_inplace "s|###Sendgrid Key###|$SENDGRID_API_KEY|g" credebl-master-table.json || {
+                print_message "red" "Failed to update SendGrid key in master table"
+                exit 1
+            }
+            ;;
+        resend)
+            sed_inplace "s|###Sendgrid Key###|$RESEND_API_KEY|g" credebl-master-table.json || {
+                print_message "red" "Failed to update Resend key in master table"
+                exit 1
+            }
+            ;;
+        smtp)
+            sed_inplace "s|###Sendgrid Key###|smtp_configured|g" credebl-master-table.json || {
+                print_message "red" "Failed to update SMTP configuration in master table"
+                exit 1
+            }
+            ;;
+    esac
     
     sed_inplace "s|##Senders Mail ID##|$EMAIL_FROM|g" credebl-master-table.json || {
         print_message "red" "Failed to update sender email in master table"
         exit 1
     }
     
+    sed_inplace "s|##Please provide encrypted password using crypto-js##|$ADMIN_PASSWORD|g" credebl-master-table.json || {
+        print_message "red" "Failed to update email provider in master table"
+        exit 1
+    }
+
     print_message "green" "Master table configuration updated successfully."
 }
 
@@ -1113,7 +1440,7 @@ start_services() {
             gnome-terminal --tab --title=\"Agent Service\" -- bash -c \"pnpm run start agent-service; exec bash\"; \
         fi; \
     done; exec bash"
-    
+
     # Start remaining services
     sleep 10
     gnome-terminal --tab --title="Issuance Service" -- bash -c "pnpm run start issuance; exec bash"
@@ -1125,6 +1452,16 @@ start_services() {
     gnome-terminal --tab --title="Geolocation Service" -- bash -c "pnpm run start geo-location; exec bash"
     sleep 10
     gnome-terminal --tab --title="Cloud Wallet Service" -- bash -c "pnpm run start cloud-wallet; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="Ecosystem Service" -- bash -c "pnpm run start ecosystem; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="Notification Service" -- bash -c "pnpm run start notification; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="OID4VC Issuance Service" -- bash -c "pnpm run start oid4vc-issuance; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="OID4VC Verification Service" -- bash -c "pnpm run start oid4vc-verification; exec bash"
+    sleep 10
+    gnome-terminal --tab --title="x509" -- bash -c "pnpm run start x509; exec bash"
 }
 
 main(){
@@ -1133,6 +1470,7 @@ main(){
     configure_ports
     prepare_environment_variable
     detect_os
+    install_nodejs
     install_docker
     install_terraform
     deploy_keycloak
