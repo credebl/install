@@ -435,6 +435,7 @@ prepare_environment_variable() {
 
     sed_inplace "
         s|your-ip|$(escape_sed "$MACHINE_IP")|g;
+        s|database-ip|$(escape_sed "$MACHINE_IP")|g;
         s|localhost|$(escape_sed "$MACHINE_IP")|g;
         s|^CREDEBL_DOMAIN=.*|CREDEBL_DOMAIN=$(escape_sed "$STUDIO_URL")|;
         s|^FRONT_END_URL=.*|FRONT_END_URL=$(escape_sed "$STUDIO_URL")|;
