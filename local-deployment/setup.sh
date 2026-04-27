@@ -225,7 +225,6 @@ update_ports_config() {
         s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORT_API_GATEWAY}|;
         s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORT_API_GATEWAY}|;
         s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORT_REDIS}|;
-        s|^APP_PORT=.*|APP_PORT=${USED_PORT_SCHEMA_FILE_SERVER}|;
         s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORT_SCHEMA_FILE_SERVER}/schemas/|;
         s|^WALLET_STORAGE_PORT=.*|WALLET_STORAGE_PORT=${USED_PORT_POSTGRES}|;
         s|^POOL_DATABASE_URL=.*|POOL_DATABASE_URL=postgresql://postgres:postgres@your-ip:${USED_PORT_POSTGRES}/credebl|;
@@ -1326,7 +1325,7 @@ setup_schema_service(){
     print_message "blue" "Setting up Schema Service..."
     docker rm schema-file-server -f
     docker run -d \
-            -p ${USED_PORT_SCHEMA_FILE_SERVER}:${USED_PORT_SCHEMA_FILE_SERVER} \
+            -p ${USED_PORT_SCHEMA_FILE_SERVER}:4000 \
             --name schema-file-server \
             --env-file .env \
             -v "$PWD/apps/schemas:/app/schemas" \
