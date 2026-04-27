@@ -1326,7 +1326,7 @@ setup_schema_service(){
     print_message "blue" "Setting up Schema Service..."
     docker rm schema-file-server -f
     docker run -d \
-            -p ${USED_PORT_SCHEMA_FILE_SERVER}:4001 \
+            -p ${USED_PORT_SCHEMA_FILE_SERVER}:${USED_PORT_SCHEMA_FILE_SERVER} \
             --name schema-file-server \
             --env-file .env \
             -v "$PWD/apps/schemas:/app/schemas" \
