@@ -181,7 +181,6 @@ update_ports_config() {
         s|^SOCKET_HOST=.*|SOCKET_HOST=ws://your-ip:${USED_PORT_API_GATEWAY}|;
         s|^UPLOAD_LOGO_HOST=.*|UPLOAD_LOGO_HOST=your-ip:${USED_PORT_API_GATEWAY}|;
         s|^API_ENDPOINT=.*|API_ENDPOINT=your-ip:${USED_PORT_API_GATEWAY}|;
-        s|^API_GATEWAY_PORT=.*|API_GATEWAY_PORT=${USED_PORT_API_GATEWAY}|;
         s|^REDIS_PORT=.*|REDIS_PORT=${USED_PORT_REDIS}|;
         s|^APP_PORT=.*|APP_PORT=${USED_PORT_SCHEMA_FILE_SERVER}|;
         s|^SCHEMA_FILE_SERVER_URL=.*|SCHEMA_FILE_SERVER_URL=http://your-ip:${USED_PORT_SCHEMA_FILE_SERVER}/schemas/|;
@@ -191,7 +190,7 @@ update_ports_config() {
     " .env
     sed_inplace "
         s|[0-9]*:5432|${USED_PORT_POSTGRES}:5432|;
-        s|[0-9]*:5000|${USED_PORT_API_GATEWAY}:${USED_PORT_API_GATEWAY}|;
+        s|[0-9]*:5000|${USED_PORT_API_GATEWAY}:5000|;
         s|[0-9]*:6379|${USED_PORT_REDIS}:6379|;
         s|[0-9]*:4000|${USED_PORT_SCHEMA_FILE_SERVER}:4000|;
     " docker-compose.yml
