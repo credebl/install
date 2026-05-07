@@ -74,6 +74,12 @@ resource "keycloak_openid_client_service_account_role" "view_users_role" {
   client_id               = data.keycloak_openid_client.realm_management_client.id
   role                    = "view-users"
 }
+resource "keycloak_openid_client_service_account_role" "manage_realm_role" {
+  realm_id                = keycloak_realm.my_realm.id
+  service_account_user_id = keycloak_openid_client.clients["client2"].service_account_user_id
+  client_id               = data.keycloak_openid_client.realm_management_client.id
+  role                    = "manage-realm"
+}
 
 # Assign trust-client-role to trust-client service account
 resource "keycloak_openid_client_service_account_realm_role" "trust_client_realm_role" {
